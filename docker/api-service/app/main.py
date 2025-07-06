@@ -196,7 +196,10 @@ async def log_requests(request: Request, call_next):
         "user_agent": random_values["user_agent"],
         "note": "",
         "environment": random_values["environment"],
-        "region": random_values["region"]
+        "region": random_values["region"],
+        "ecs_cluster": ecs_metadata["cluster"],
+        "ecs_service": ecs_metadata["service"],
+        "ecs_task_id": ecs_metadata["task_id"]
     }
     
     target_size = 1000
