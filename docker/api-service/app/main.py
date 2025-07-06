@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import random
 import time
 import uuid
 import requests
@@ -68,6 +69,38 @@ def get_ecs_metadata():
     return metadata
 
 ecs_metadata = get_ecs_metadata()
+
+def generate_random_values():
+    auth_methods = ["BearerToken", "ApiKey", "OAuth2", "BasicAuth"]
+    user_agents = [
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Mozilla/5.0 (X11; Linux x86_64)",
+        "PostmanRuntime/7.32.3"
+    ]
+    environments = ["production", "staging", "development"]
+    regions = ["ap-northeast-1", "us-east-1", "eu-west-1", "ap-southeast-1"]
+    
+    return {
+        "auth_method": random.choice(auth_methods),
+        "user_agent": random.choice(user_agents),
+        "environment": random.choice(environments),
+        "region": random.choice(regions)
+    }
+
+def generate_random_order_data():
+    instruments = ["USDJPY", "EURJPY", "GBPJPY", "AUDJPY", "EURUSD"]
+    order_types = ["LIMIT", "MARKET", "STOP", "STOP_LIMIT"]
+    sides = ["BUY", "SELL"]
+    
+    return {
+        "order_id": f"ORD-{random.randint(100000000, 999999999)}",
+        "instrument": random.choice(instruments),
+        "order_type": random.choice(order_types),
+        "quantity": random.randint(10000, 1000000),
+        "price": round(random.uniform(100.0, 200.0), 2),
+        "side": random.choice(sides)
+    }
 
 logger = logging.getLogger("api_logger")
 logger.setLevel(logging.INFO)
@@ -145,24 +178,49 @@ async def log_requests(request: Request, call_next):
             }
             print(json.dumps(error_log))
     
+    random_values = generate_random_values()
+    random_order = generate_random_order_data()
+    
     log_entry = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
-        "level": "INFO",
+        "level": "ERROR" if response.status_code >= 400 else "INFO",
         "request_id": request_id,
-        "source_ip": source_ip,
         "user_id": user_id,
-        "method": request.method,
-        "path": request.url.path,
-        "query_params": str(request.query_params),
+        "client_ip": source_ip,
+        "http_method": request.method,
+        "api_path": request.url.path,
         "status_code": response.status_code,
-        "status_message": response.headers.get("X-Status-Message", ""),
         "response_time_ms": response_time_ms,
-        "request_body": request_body,
-        "response_body": response_body,
-        "ecs_cluster": ecs_metadata["cluster"],
-        "ecs_service": ecs_metadata["service"],
-        "ecs_task_id": ecs_metadata["task_id"],
+        "request_body": random_order,
+        "auth_method": random_values["auth_method"],
+        "user_agent": random_values["user_agent"],
+        "note": "",
+        "environment": random_values["environment"],
+        "region": random_values["region"]
     }
+    
+    target_size = 1000
+    
+    low, high = 0, 2000
+    best_note_length = 0
+    
+    while low <= high:
+        mid = (low + high) // 2
+        log_entry["note"] = "A" * mid
+        
+        test_json = json.dumps(log_entry, separators=(',', ':'))
+        test_size = len(test_json.encode('utf-8'))
+        
+        if test_size == target_size:
+            best_note_length = mid
+            break
+        elif test_size < target_size:
+            best_note_length = mid
+            low = mid + 1
+        else:
+            high = mid - 1
+    
+    log_entry["note"] = "A" * best_note_length
     
     print(json.dumps(log_entry))
     
