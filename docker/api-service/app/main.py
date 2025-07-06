@@ -224,44 +224,6 @@ async def log_requests(request: Request, call_next):
     
     print(json.dumps(log_entry))
     
-    try:
-        firehose_log = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "level": "INFO",
-            "message": f"Sending log for path: {request.url.path} to Firehose"
-        }
-        print(json.dumps(firehose_log))
-        
-        firehose_client = boto3.client('firehose', region_name=os.environ.get('AWS_REGION', 'ap-northeast-1'))
-        
-        parquet_stream = os.environ.get('FIREHOSE_STREAM_PARQUET')
-        if parquet_stream:
-            firehose_client.put_record(
-                DeliveryStreamName=parquet_stream,
-                Record={'Data': json.dumps(log_entry) + '\n'}
-            )
-        
-        iceberg_stream = os.environ.get('FIREHOSE_STREAM_ICEBERG')
-        if iceberg_stream:
-            firehose_client.put_record(
-                DeliveryStreamName=iceberg_stream,
-                Record={'Data': json.dumps(log_entry) + '\n'}
-            )
-            
-        json_stream = os.environ.get('FIREHOSE_STREAM_JSON')
-        if json_stream:
-            firehose_client.put_record(
-                DeliveryStreamName=json_stream,
-                Record={'Data': json.dumps(log_entry) + '\n'}
-            )
-    except Exception as e:
-        error_log = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "level": "ERROR",
-            "message": f"Error sending to Firehose: {str(e)}"
-        }
-        print(json.dumps(error_log))
-    
     return response
 
 @app.get("/")
