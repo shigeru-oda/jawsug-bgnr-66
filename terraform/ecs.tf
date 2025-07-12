@@ -12,6 +12,20 @@ resource "aws_ecr_repository" "api_service" {
   }
 }
 
+resource "aws_ecr_repository" "fluent_bit" {
+  name                 = "fluent-bit"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name    = "fluent-bit"
+    Project = var.project_name
+  }
+}
+
 resource "aws_ecs_cluster" "main" {
   name = "${var.project_name}-cluster"
 
@@ -45,13 +59,49 @@ resource "aws_ecs_task_definition" "api_service" {
   cpu                      = "512"
   memory                   = "1024"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_role.arn
+  task_role_arn            = aws_iam_role.fluent_bit_task_role.arn
 
   container_definitions = jsonencode([
+    {
+      name      = "log_router"
+      image     = "${aws_ecr_repository.fluent_bit.repository_url}:latest"
+      essential = true
+      cpu       = 64
+      memoryReservation = 128
+
+      environment = [
+        {
+          name  = "AWS_REGION"
+          value = var.aws_region
+        },
+        {
+          name  = "FLB_LOG_LEVEL"
+          value = "info"
+        }
+      ]
+
+      firelensConfiguration = {
+        type = "fluentbit"
+        options = {
+          "enable-ecs-log-metadata" = "true"
+        }
+      }
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.ecs_api_service.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "firelens"
+        }
+      }
+    },
     {
       name      = "api-service"
       image     = "${aws_ecr_repository.api_service.repository_url}:latest"
       essential = true
+      cpu       = 224
+      memory    = 448
 
       portMappings = [
         {
@@ -71,10 +121,6 @@ resource "aws_ecs_task_definition" "api_service" {
           value = "api-service"
         },
         {
-          name  = "CLOUDWATCH_LOG_GROUP"
-          value = aws_cloudwatch_log_group.ecs_api_service.name
-        },
-        {
           name  = "AWS_REGION"
           value = var.aws_region
         },
@@ -88,13 +134,27 @@ resource "aws_ecs_task_definition" "api_service" {
         }
       ]
 
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.ecs_api_service.name
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "api-service"
+      dependsOn = [
+        {
+          containerName = "log_router"
+          condition     = "START"
         }
+      ]
+
+      logConfiguration = {
+        logDriver = "awsfirelens"
+        options = {
+          "Name" = "forward"
+          "Host" = "127.0.0.1"
+          "Port" = "24224"
+        }
+      }
+      healthCheck = {
+        command = ["CMD-SHELL", "python -c \"import requests; requests.get('http://localhost:8000/health', timeout=5)\" || exit 1"]
+        interval = 30
+        timeout = 10
+        retries = 3
+        startPeriod = 5
       }
     }
   ])
@@ -109,7 +169,7 @@ resource "aws_ecs_service" "api_service" {
   name            = "api-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.api_service.arn
-  desired_count   = 2
+  desired_count   = 1
   launch_type     = "FARGATE"
 
   network_configuration {
@@ -133,8 +193,8 @@ resource "aws_ecs_service" "api_service" {
 
   lifecycle {
     ignore_changes = [
-      task_definition,
-      desired_count
+      desired_count,
+      task_definition
     ]
   }
 }

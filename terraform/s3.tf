@@ -4,6 +4,8 @@ resource "random_string" "suffix" {
   upper   = false
 }
 
+
+
 resource "aws_s3_bucket" "api_logs_parquet" {
   bucket = "${var.project_name}-api-logs-parquet-${random_string.suffix.result}"
 

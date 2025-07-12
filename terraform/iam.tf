@@ -25,6 +25,9 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# FireLens設定ファイル読み込み用ポリシー
+
+
 resource "aws_iam_role" "ecs_task_role" {
   name = "${var.project_name}-ecs-task-role"
 
@@ -335,4 +338,119 @@ resource "aws_iam_policy" "athena_policy" {
 resource "aws_iam_role_policy_attachment" "firehose_athena_policy_attachment" {
   role       = aws_iam_role.firehose_role.name
   policy_arn = aws_iam_policy.athena_policy.arn
+}
+
+# --- CloudWatch Logs サブスクリプションフィルター用IAMロール ---
+resource "aws_iam_role" "cloudwatch_logs_subscription_role" {
+  name = "${var.project_name}-cloudwatch-logs-subscription-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name    = "${var.project_name}-cloudwatch-logs-subscription-role"
+    Project = var.project_name
+  }
+}
+
+resource "aws_iam_policy" "cloudwatch_logs_subscription_policy" {
+  name        = "${var.project_name}-cloudwatch-logs-subscription-policy"
+  description = "Policy for CloudWatch Logs to send data to Kinesis Firehose"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "firehose:PutRecord",
+          "firehose:PutRecordBatch"
+        ]
+        Resource = [
+          aws_kinesis_firehose_delivery_stream.api_logs_json.arn,
+          aws_kinesis_firehose_delivery_stream.api_logs_parquet.arn
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch_logs_subscription_policy_attachment" {
+  role       = aws_iam_role.cloudwatch_logs_subscription_role.name
+  policy_arn = aws_iam_policy.cloudwatch_logs_subscription_policy.arn
+}
+
+# Lambda execution role for CloudWatch Logs decompression
+resource "aws_iam_role" "lambda_gzip_decompression_role" {
+  name = "${var.project_name}-lambda-gzip-decompression-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# Lambda basic execution policy
+resource "aws_iam_role_policy_attachment" "lambda_gzip_basic_execution" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  role       = aws_iam_role.lambda_gzip_decompression_role.name
+}
+
+# FluentBit task role for Firehose access
+resource "aws_iam_role" "fluent_bit_task_role" {
+  name = "${var.project_name}-fluent-bit-task-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# FluentBit policy for Firehose access
+resource "aws_iam_role_policy" "fluent_bit_firehose_policy" {
+  name = "${var.project_name}-fluent-bit-firehose-policy"
+  role = aws_iam_role.fluent_bit_task_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "firehose:PutRecord",
+          "firehose:PutRecordBatch"
+        ]
+        Resource = [
+          aws_kinesis_firehose_delivery_stream.api_logs_json.arn,
+          aws_kinesis_firehose_delivery_stream.api_logs_parquet.arn
+        ]
+      }
+    ]
+  })
 }

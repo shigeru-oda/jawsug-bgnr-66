@@ -1,0 +1,61 @@
+# Version control
+.git/
+.gitignore
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+
+# Testing and development
+.pytest_cache/
+.coverage
+.tox/
+.mypy_cache/
+*.log
+
+# Virtual environments
+.env
+.venv/
+venv/
+env/
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Development configuration
+.env.local
+.env.development
+.env.test
+
+# Docker development files
+docker-compose*.yml
+
+# Temporary files
+*.tmp
+tmp/
+
+# Documentation (except README)
+docs/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Terraform
+*.tfstate
+.terraform/
+
+# AWS credentials
+.aws/
+aws-credentials 

@@ -26,6 +26,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- ECSメタデータ取得関数 ---
 def get_ecs_metadata():
     metadata = {
         "cluster": os.environ.get("ECS_CLUSTER_NAME", ""),
@@ -70,6 +71,8 @@ def get_ecs_metadata():
 
 ecs_metadata = get_ecs_metadata()
 
+
+# --- ランダムな認証・環境値を生成する関数 ---
 def generate_random_values():
     auth_methods = ["BearerToken", "ApiKey", "OAuth2", "BasicAuth"]
     user_agents = [
@@ -120,6 +123,7 @@ class BatchRequest(BaseModel):
 class BatchResponse(BaseModel):
     results: List[OrderResponse]
 
+# --- FastAPIのリクエストロギング用ミドルウェア ---
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     request_id = str(uuid.uuid4())
@@ -196,7 +200,10 @@ async def log_requests(request: Request, call_next):
         "user_agent": random_values["user_agent"],
         "note": "",
         "environment": random_values["environment"],
-        "region": random_values["region"]
+        "region": random_values["region"],
+        "ecs_cluster": ecs_metadata.get("cluster"),
+        "ecs_service": ecs_metadata.get("service"),
+        "ecs_task_id": ecs_metadata.get("task_id"),
     }
     
     target_size = 1000
@@ -222,14 +229,17 @@ async def log_requests(request: Request, call_next):
     
     log_entry["note"] = "A" * best_note_length
     
+    # コンソールログ出力（FireLens経由で2つのFirehoseストリームに送信）
     print(json.dumps(log_entry))
     
     return response
 
+# --- ルートエンドポイント ---
 @app.get("/")
 async def root():
     return {"message": "API Service is running"}
 
+# --- 単一注文作成エンドポイント ---
 @app.post("/api/v1/orders", response_model=OrderResponse, status_code=201)
 async def create_order(order: OrderRequest, response: Response):
     response.headers["X-Status-Message"] = "Created"
@@ -238,6 +248,7 @@ async def create_order(order: OrderRequest, response: Response):
     
     return {"order_id": order_id}
 
+# --- バッチ注文作成エンドポイント ---
 @app.post("/api/v1/batch", response_model=BatchResponse, status_code=201)
 async def create_batch_orders(batch: BatchRequest, response: Response):
     response.headers["X-Status-Message"] = "Created"
@@ -263,6 +274,7 @@ async def create_batch_orders(batch: BatchRequest, response: Response):
     
     return {"results": results}
 
+# --- ヘルスチェックエンドポイント ---
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}

@@ -11,7 +11,7 @@ resource "aws_kinesis_firehose_delivery_stream" "api_logs_json" {
 
     buffering_size     = 128
     buffering_interval = 60
-    compression_format = "GZIP"
+    compression_format = "UNCOMPRESSED"
 
     cloudwatch_logging_options {
       enabled         = true

@@ -3,9 +3,6 @@
 JAWS-UG初心者支部#66 hands-on
 https://jawsug-bgnr.connpass.com/event/360104/
 
-# builders.flash-202506-material
-
-builders.flash-202506-material
 
 ## 構成図
 
@@ -81,7 +78,7 @@ aws s3api create-bucket \
 ```./terraform/main.tf
 terraform {
   backend "s3" {
-    bucket  = "tfstate-shigeruoda-20250506093223" <- ここを更新
+    bucket  = "tfstate-shigeruoda-20250706093342" <- ここを更新
     key     = "terraform.tfstate"
     region  = "ap-northeast-1"
     encrypt = true

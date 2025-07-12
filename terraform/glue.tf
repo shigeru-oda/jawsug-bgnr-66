@@ -534,4 +534,3 @@ resource "aws_glue_catalog_table" "api_logs_parquet_express_table" {
     type = "string"
   }
 }
-
