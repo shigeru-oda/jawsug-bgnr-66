@@ -1,5 +1,5 @@
-resource "aws_kinesis_firehose_delivery_stream" "api_logs_json" {
-  name        = "${var.project_name}-api-logs-json"
+resource "aws_kinesis_firehose_delivery_stream" "api_service_json" {
+  name        = "api-service-json-firehose"
   destination = "extended_s3"
 
   extended_s3_configuration {
@@ -21,13 +21,12 @@ resource "aws_kinesis_firehose_delivery_stream" "api_logs_json" {
   }
 
   tags = {
-    Name    = "${var.project_name}-api-logs-json"
-    Project = var.project_name
+    Name = "api-service-json-firehose"
   }
 }
 
-resource "aws_kinesis_firehose_delivery_stream" "api_logs_parquet" {
-  name        = "builders-flash-api-logs-parquet"
+resource "aws_kinesis_firehose_delivery_stream" "api_service_parquet" {
+  name        = "api-service-parquet-firehose"
   destination = "extended_s3"
 
   extended_s3_configuration {
@@ -66,12 +65,11 @@ resource "aws_kinesis_firehose_delivery_stream" "api_logs_parquet" {
     cloudwatch_logging_options {
       enabled         = true
       log_group_name  = aws_cloudwatch_log_group.kinesis_api_service.name
-      log_stream_name = "standard-errors"
+      log_stream_name = "parquet-errors"
     }
   }
 
   tags = {
-    Name    = "builders-flash-api-logs-parquet"
-    Project = var.project_name
+    Name = "api-service-parquet-firehose"
   }
 }

@@ -17,3 +17,13 @@ resource "aws_cloudwatch_log_group" "kinesis_api_service" {
     Project = var.project_name
   }
 }
+
+resource "aws_cloudwatch_log_group" "api_service_firelens" {
+  name              = "/ecs/api-service-firelens"
+  retention_in_days = 30
+
+  tags = {
+    Name    = "/ecs/api-service-firelens"
+    Project = var.project_name
+  }
+}

@@ -111,3 +111,17 @@ FireLens (Custom Fluent Bit)
        ├── OUTPUT 1 → buildersflash-api-logs-json
        └── OUTPUT 2 → builders-flash-api-logs-parquet
 ```
+curl http://buildersflash-alb-1016369498.ap-northeast-1.elb.amazonaws.com
+curl http://buildersflash-alb-1016369498.ap-northeast-1.elb.amazonaws.com/health
+curl -X POST http://buildersflash-alb-1016369498.ap-northeast-1.elb.amazonaws.com/api/v1/orders \
+  -H "Content-Type: application/json" \
+  -H "X-User-ID: user123" \
+  -d '{
+    "item_id": "item-abc123"
+  }'
+curl -X POST http://buildersflash-alb-1016369498.ap-northeast-1.elb.amazonaws.com/api/v1/batch \
+  -H "Content-Type: application/json" \
+  -H "X-User-ID: user456" \
+  -d '{
+    "count": 5
+  }'

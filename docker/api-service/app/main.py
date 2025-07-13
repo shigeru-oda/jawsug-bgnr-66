@@ -16,6 +16,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pythonjsonlogger import jsonlogger
 
+# TCP接続は不要 - Firelensを使用
+
 app = FastAPI(title="API Service")
 
 app.add_middleware(
@@ -25,6 +27,63 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Firehose client initialization
+firehose_client = boto3.client('firehose', region_name=os.environ.get('AWS_DEFAULT_REGION', 'ap-northeast-1'))
+
+# Firehose stream names (from environment variables)
+FIREHOSE_JSON_STREAM = os.environ.get('FIREHOSE_JSON_STREAM', 'api-service-json-firehose')
+FIREHOSE_PARQUET_STREAM = os.environ.get('FIREHOSE_PARQUET_STREAM', 'api-service-parquet-firehose')
+
+# Firehose送信関数
+def send_to_firehose(json_data: Dict[str, Any], parquet_data: Optional[Dict[str, Any]] = None):
+    """
+    JSONとParquetの2つのFirehoseストリームに送信
+    """
+    try:
+        # JSON Firehoseに送信
+        json_record = json.dumps(json_data) + '\n'
+        firehose_client.put_record(
+            DeliveryStreamName=FIREHOSE_JSON_STREAM,
+            Record={'Data': json_record}
+        )
+        
+        # Parquet Firehoseに送信（構造化データ）
+        if parquet_data:
+            parquet_record = json.dumps(parquet_data) + '\n'
+            firehose_client.put_record(
+                DeliveryStreamName=FIREHOSE_PARQUET_STREAM,
+                Record={'Data': parquet_record}
+            )
+        
+        # コンソールにも出力（CloudWatch Logs用）
+        print(json.dumps(json_data))
+        
+    except Exception as e:
+        error_log = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "level": "ERROR",
+            "message": f"Failed to send to Firehose: {str(e)}",
+            "service": "api-service",
+            "firehose_streams": {
+                "json": FIREHOSE_JSON_STREAM,
+                "parquet": FIREHOSE_PARQUET_STREAM
+            }
+        }
+        print(json.dumps(error_log))
+
+# アプリケーション起動時のログ
+startup_log = {
+    "timestamp": datetime.utcnow().isoformat() + "Z",
+    "level": "INFO",
+    "message": "API Service starting up with direct Firehose integration",
+    "service": "api-service",
+    "firehose_streams": {
+        "json": FIREHOSE_JSON_STREAM,
+        "parquet": FIREHOSE_PARQUET_STREAM
+    }
+}
+send_to_firehose(startup_log)
 
 # --- ECSメタデータ取得関数 ---
 def get_ecs_metadata():
@@ -70,6 +129,17 @@ def get_ecs_metadata():
     return metadata
 
 ecs_metadata = get_ecs_metadata()
+
+# ECSメタデータ取得後のログ
+metadata_log = {
+    "timestamp": datetime.utcnow().isoformat() + "Z",
+    "level": "INFO",
+    "message": "ECS metadata retrieved",
+    "ecs_metadata": ecs_metadata,
+    "service": "api-service"
+}
+# Parquetにも詳細な内容を送信
+send_to_firehose(metadata_log, metadata_log)
 
 
 # --- ランダムな認証・環境値を生成する関数 ---
@@ -160,9 +230,10 @@ async def log_requests(request: Request, call_next):
             error_log = {
                 "timestamp": datetime.utcnow().isoformat() + "Z",
                 "level": "ERROR",
-                "message": f"Error parsing request body: {str(e)}"
+                "message": f"Error parsing request body: {str(e)}",
+                "service": "api-service"
             }
-            print(json.dumps(error_log))
+            send_to_firehose(error_log)
     else:
         response = await call_next(request)
     
@@ -178,9 +249,10 @@ async def log_requests(request: Request, call_next):
             error_log = {
                 "timestamp": datetime.utcnow().isoformat() + "Z",
                 "level": "ERROR",
-                "message": f"Error parsing response body: {str(e)}"
+                "message": f"Error parsing response body: {str(e)}",
+                "service": "api-service"
             }
-            print(json.dumps(error_log))
+            send_to_firehose(error_log)
     
     random_values = generate_random_values()
     random_order = generate_random_order_data()
@@ -229,8 +301,8 @@ async def log_requests(request: Request, call_next):
     
     log_entry["note"] = "A" * best_note_length
     
-    # コンソールログ出力（FireLens経由で2つのFirehoseストリームに送信）
-    print(json.dumps(log_entry))
+    # Parquetにも詳細な内容を送信
+    send_to_firehose(log_entry, log_entry)
     
     return response
 
@@ -257,19 +329,19 @@ async def create_batch_orders(batch: BatchRequest, response: Response):
     
     for _ in range(batch.count):
         random_user_id = str(uuid.uuid4())
-        
         random_item_id = f"item-{str(uuid.uuid4())[:8]}"
         
         batch_log = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "level": "INFO",
-            "message": f"Processing batch order with X-User-ID: {random_user_id}, item_id: {random_item_id}"
+            "message": f"Processing batch order with X-User-ID: {random_user_id}, item_id: {random_item_id}",
+            "service": "api-service"
         }
-        print(json.dumps(batch_log))
+        # Parquetにも詳細な内容を送信
+        send_to_firehose(batch_log, batch_log)
         
         order_request = OrderRequest(item_id=random_item_id)
-        order_id = str(uuid.uuid4())[:5]  # 既存の実装と同様に注文IDを生成
-        
+        order_id = str(uuid.uuid4())[:5]
         results.append(OrderResponse(order_id=order_id))
     
     return {"results": results}
@@ -280,6 +352,15 @@ async def health_check():
     return {"status": "healthy"}
 
 if __name__ == "__main__":
+    server_start_log = {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "level": "INFO",
+        "message": "Starting uvicorn server on 0.0.0.0:8000",
+        "service": "api-service"
+    }
+    # Parquetにも詳細な内容を送信
+    send_to_firehose(server_start_log, server_start_log)
+    
     uvicorn.run(
         "main:app",
         host="0.0.0.0",

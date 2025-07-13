@@ -39,81 +39,71 @@ resource "aws_glue_catalog_table" "api_logs_json_table" {
       }
     }
 
+    # JSONテーブルのcolumnsをParquetテーブルと同じ順序・カラム名・型に揃える
     columns {
       name = "timestamp"
       type = "string"
     }
-
     columns {
       name = "level"
       type = "string"
     }
-
     columns {
       name = "request_id"
       type = "string"
     }
-
     columns {
-      name = "source_ip"
+      name = "client_ip"
       type = "string"
     }
-
     columns {
-      name = "user_id"
+      name = "http_method"
       type = "string"
     }
-
     columns {
-      name = "method"
+      name = "api_path"
       type = "string"
     }
-
-    columns {
-      name = "path"
-      type = "string"
-    }
-
-    columns {
-      name = "query_params"
-      type = "string"
-    }
-
     columns {
       name = "status_code"
       type = "int"
     }
-
-    columns {
-      name = "status_message"
-      type = "string"
-    }
-
     columns {
       name = "response_time_ms"
       type = "int"
     }
-
     columns {
       name = "request_body"
-      type = "string"
+      type = "struct<order_id:string,instrument:string,order_type:string,quantity:int,price:double,side:string>"
     }
-
     columns {
-      name = "response_body"
+      name = "auth_method"
       type = "string"
     }
-
+    columns {
+      name = "user_agent"
+      type = "string"
+    }
+    columns {
+      name = "note"
+      type = "string"
+    }
+    columns {
+      name = "environment"
+      type = "string"
+    }
+    columns {
+      name = "region"
+      type = "string"
+    }
     columns {
       name = "ecs_cluster"
       type = "string"
     }
-
     columns {
       name = "ecs_service"
       type = "string"
     }
-
     columns {
       name = "ecs_task_id"
       type = "string"
@@ -171,81 +161,71 @@ resource "aws_glue_catalog_table" "api_logs_parquet_table" {
       }
     }
 
+    # Parquet用テーブルのcolumnsをjsonテーブルの順序に合わせて並べ替え、http_method, client_ip, api_pathも追加
     columns {
       name = "timestamp"
       type = "string"
     }
-
     columns {
       name = "level"
       type = "string"
     }
-
     columns {
       name = "request_id"
       type = "string"
     }
-
     columns {
-      name = "source_ip"
+      name = "client_ip"
       type = "string"
     }
-
     columns {
-      name = "user_id"
+      name = "http_method"
       type = "string"
     }
-
     columns {
-      name = "method"
+      name = "api_path"
       type = "string"
     }
-
-    columns {
-      name = "path"
-      type = "string"
-    }
-
-    columns {
-      name = "query_params"
-      type = "string"
-    }
-
     columns {
       name = "status_code"
       type = "int"
     }
-
-    columns {
-      name = "status_message"
-      type = "string"
-    }
-
     columns {
       name = "response_time_ms"
       type = "int"
     }
-
     columns {
       name = "request_body"
-      type = "string"
+      type = "struct<order_id:string,instrument:string,order_type:string,quantity:int,price:double,side:string>"
     }
-
     columns {
-      name = "response_body"
+      name = "auth_method"
       type = "string"
     }
-
+    columns {
+      name = "user_agent"
+      type = "string"
+    }
+    columns {
+      name = "note"
+      type = "string"
+    }
+    columns {
+      name = "environment"
+      type = "string"
+    }
+    columns {
+      name = "region"
+      type = "string"
+    }
     columns {
       name = "ecs_cluster"
       type = "string"
     }
-
     columns {
       name = "ecs_service"
       type = "string"
     }
-
     columns {
       name = "ecs_task_id"
       type = "string"
@@ -306,81 +286,71 @@ resource "aws_glue_catalog_table" "api_logs_json_express_table" {
       }
     }
 
+    # JSONテーブルのcolumnsをParquetテーブルと同じ順序・カラム名・型に揃える
     columns {
       name = "timestamp"
       type = "string"
     }
-
     columns {
       name = "level"
       type = "string"
     }
-
     columns {
       name = "request_id"
       type = "string"
     }
-
     columns {
-      name = "source_ip"
+      name = "client_ip"
       type = "string"
     }
-
     columns {
-      name = "user_id"
+      name = "http_method"
       type = "string"
     }
-
     columns {
-      name = "method"
+      name = "api_path"
       type = "string"
     }
-
-    columns {
-      name = "path"
-      type = "string"
-    }
-
-    columns {
-      name = "query_params"
-      type = "string"
-    }
-
     columns {
       name = "status_code"
       type = "int"
     }
-
-    columns {
-      name = "status_message"
-      type = "string"
-    }
-
     columns {
       name = "response_time_ms"
       type = "int"
     }
-
     columns {
       name = "request_body"
-      type = "string"
+      type = "struct<order_id:string,instrument:string,order_type:string,quantity:int,price:double,side:string>"
     }
-
     columns {
-      name = "response_body"
+      name = "auth_method"
       type = "string"
     }
-
+    columns {
+      name = "user_agent"
+      type = "string"
+    }
+    columns {
+      name = "note"
+      type = "string"
+    }
+    columns {
+      name = "environment"
+      type = "string"
+    }
+    columns {
+      name = "region"
+      type = "string"
+    }
     columns {
       name = "ecs_cluster"
       type = "string"
     }
-
     columns {
       name = "ecs_service"
       type = "string"
     }
-
     columns {
       name = "ecs_task_id"
       type = "string"
@@ -438,81 +408,71 @@ resource "aws_glue_catalog_table" "api_logs_parquet_express_table" {
       }
     }
 
+    # Parquet用テーブルのcolumnsをjsonテーブルの順序に合わせて並べ替え、http_method, client_ip, api_pathも追加
     columns {
       name = "timestamp"
       type = "string"
     }
-
     columns {
       name = "level"
       type = "string"
     }
-
     columns {
       name = "request_id"
       type = "string"
     }
-
     columns {
-      name = "source_ip"
+      name = "client_ip"
       type = "string"
     }
-
     columns {
-      name = "user_id"
+      name = "http_method"
       type = "string"
     }
-
     columns {
-      name = "method"
+      name = "api_path"
       type = "string"
     }
-
-    columns {
-      name = "path"
-      type = "string"
-    }
-
-    columns {
-      name = "query_params"
-      type = "string"
-    }
-
     columns {
       name = "status_code"
       type = "int"
     }
-
-    columns {
-      name = "status_message"
-      type = "string"
-    }
-
     columns {
       name = "response_time_ms"
       type = "int"
     }
-
     columns {
       name = "request_body"
-      type = "string"
+      type = "struct<order_id:string,instrument:string,order_type:string,quantity:int,price:double,side:string>"
     }
-
     columns {
-      name = "response_body"
+      name = "auth_method"
       type = "string"
     }
-
+    columns {
+      name = "user_agent"
+      type = "string"
+    }
+    columns {
+      name = "note"
+      type = "string"
+    }
+    columns {
+      name = "environment"
+      type = "string"
+    }
+    columns {
+      name = "region"
+      type = "string"
+    }
     columns {
       name = "ecs_cluster"
       type = "string"
     }
-
     columns {
       name = "ecs_service"
       type = "string"
     }
-
     columns {
       name = "ecs_task_id"
       type = "string"
