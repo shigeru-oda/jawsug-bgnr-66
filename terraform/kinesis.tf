@@ -19,10 +19,6 @@ resource "aws_kinesis_firehose_delivery_stream" "api_service_json" {
       log_stream_name = "json-errors"
     }
   }
-
-  tags = {
-    Name = "api-service-json-firehose"
-  }
 }
 
 resource "aws_kinesis_firehose_delivery_stream" "api_service_parquet" {
@@ -40,13 +36,16 @@ resource "aws_kinesis_firehose_delivery_stream" "api_service_parquet" {
     buffering_interval = 60
     compression_format = "UNCOMPRESSED"
 
+    # Parquet形式への変換設定
     data_format_conversion_configuration {
+      enabled = true
+      
       input_format_configuration {
         deserializer {
           open_x_json_ser_de {}
         }
       }
-
+      
       output_format_configuration {
         serializer {
           parquet_ser_de {
@@ -54,10 +53,10 @@ resource "aws_kinesis_firehose_delivery_stream" "api_service_parquet" {
           }
         }
       }
-
+      
       schema_configuration {
-        database_name = aws_glue_catalog_database.api_logs_database.name
-        table_name    = aws_glue_catalog_table.api_logs_parquet_table.name
+        database_name = aws_glue_catalog_database.builders_flash_logs.name
+        table_name    = aws_glue_catalog_table.api_logs_parquet.name
         role_arn      = aws_iam_role.firehose_role.arn
       }
     }
@@ -67,9 +66,5 @@ resource "aws_kinesis_firehose_delivery_stream" "api_service_parquet" {
       log_group_name  = aws_cloudwatch_log_group.kinesis_api_service.name
       log_stream_name = "parquet-errors"
     }
-  }
-
-  tags = {
-    Name = "api-service-parquet-firehose"
   }
 }

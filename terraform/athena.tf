@@ -14,16 +14,11 @@ resource "aws_athena_workgroup" "api_logs" {
       }
     }
   }
-
-  tags = {
-    Name    = "${var.project_name}-api-logs-workgroup"
-    Project = var.project_name
-  }
 }
 
 resource "aws_athena_named_query" "api_logs_parquet_flat_view" {
   name      = "api_logs_parquet_flat_view"
-  database  = aws_glue_catalog_database.api_logs_database.name
+  database  = aws_glue_catalog_database.builders_flash_logs.name
   query     = <<EOT
 CREATE OR REPLACE VIEW api_logs_parquet_flat_view AS
 SELECT
@@ -57,7 +52,7 @@ EOT
 
 resource "aws_athena_named_query" "api_logs_json_flat_view" {
   name      = "api_logs_json_flat_view"
-  database  = aws_glue_catalog_database.api_logs_database.name
+  database  = aws_glue_catalog_database.builders_flash_logs.name
   query     = <<EOT
 CREATE OR REPLACE VIEW api_logs_json_flat_view AS
 SELECT

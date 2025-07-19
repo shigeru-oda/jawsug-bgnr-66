@@ -6,10 +6,6 @@ resource "aws_lb" "api_service" {
   subnets            = aws_subnet.public[*].id
 
   enable_deletion_protection = false
-
-  tags = {
-    Name = "api-service-alb"
-  }
 }
 
 resource "aws_lb_target_group" "api_service" {
@@ -29,10 +25,6 @@ resource "aws_lb_target_group" "api_service" {
     timeout             = 5
     protocol            = "HTTP"
     matcher             = "200"
-  }
-
-  tags = {
-    Name = "api-service-tg"
   }
 }
 

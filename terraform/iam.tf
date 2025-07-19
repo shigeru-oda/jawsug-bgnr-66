@@ -13,11 +13,6 @@ resource "aws_iam_role" "ecs_task_execution_role" {
       }
     ]
   })
-
-  tags = {
-    Name    = "${var.project_name}-ecs-execution-role"
-    Project = var.project_name
-  }
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
@@ -29,9 +24,6 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_cloudwatch_policy"
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = aws_iam_policy.task_policy.arn
 }
-
-# FireLens設定ファイル読み込み用ポリシー
-
 
 resource "aws_iam_role" "ecs_task_role" {
   name = "${var.project_name}-ecs-task-role"
@@ -48,11 +40,6 @@ resource "aws_iam_role" "ecs_task_role" {
       }
     ]
   })
-
-  tags = {
-    Name    = "${var.project_name}-ecs-task-role"
-    Project = var.project_name
-  }
 }
 
 resource "aws_iam_policy" "task_policy" {
@@ -98,11 +85,6 @@ resource "aws_iam_role" "firehose_role" {
       }
     ]
   })
-
-  tags = {
-    Name    = "builders-flash-firehose-role"
-    Project = var.project_name
-  }
 }
 
 resource "aws_iam_policy" "firehose_policy" {
@@ -182,7 +164,8 @@ resource "aws_iam_policy" "ecs_firehose_policy" {
         ]
         Resource = [
           aws_kinesis_firehose_delivery_stream.api_service_json.arn,
-          aws_kinesis_firehose_delivery_stream.api_service_parquet.arn
+          aws_kinesis_firehose_delivery_stream.api_service_parquet.arn,
+          #aws_kinesis_firehose_delivery_stream.api_service_s3tables.arn
         ]
       }
     ]
@@ -210,6 +193,7 @@ resource "aws_iam_policy" "firelens_policy" {
         Resource = [
           aws_kinesis_firehose_delivery_stream.api_service_parquet.arn,
           aws_kinesis_firehose_delivery_stream.api_service_json.arn,
+          #aws_kinesis_firehose_delivery_stream.api_service_s3tables.arn,
         ]
       },
       {
@@ -291,7 +275,11 @@ resource "aws_iam_policy" "glue_s3_policy" {
           aws_s3_directory_bucket.api_logs_json_express.arn,
           "${aws_s3_directory_bucket.api_logs_json_express.arn}/*",
           aws_s3_bucket.athena_query_results.arn,
-          "${aws_s3_bucket.athena_query_results.arn}/*"
+          "${aws_s3_bucket.athena_query_results.arn}/*",
+          aws_s3_bucket.api_logs_iceberg.arn,
+          "${aws_s3_bucket.api_logs_iceberg.arn}/*",
+          aws_s3_bucket.glue_scripts.arn,
+          "${aws_s3_bucket.glue_scripts.arn}/*"
         ]
       }
     ]
@@ -335,6 +323,24 @@ resource "aws_iam_policy" "athena_policy" {
           "arn:aws:glue:${var.aws_region}:*:database/builders_flash_logs",
           "arn:aws:glue:${var.aws_region}:*:table/builders_flash_logs/*"
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
+        ]
+        Resource = [
+          aws_s3_bucket.api_logs_parquet.arn,
+          "${aws_s3_bucket.api_logs_parquet.arn}/*",
+          aws_s3_bucket.api_logs_json.arn,
+          "${aws_s3_bucket.api_logs_json.arn}/*",
+          aws_s3_bucket.athena_query_results.arn,
+          "${aws_s3_bucket.athena_query_results.arn}/*",
+          aws_s3_bucket.api_logs_iceberg.arn,
+          "${aws_s3_bucket.api_logs_iceberg.arn}/*"
+        ]
       }
     ]
   })
@@ -345,142 +351,170 @@ resource "aws_iam_role_policy_attachment" "firehose_athena_policy_attachment" {
   policy_arn = aws_iam_policy.athena_policy.arn
 }
 
-# --- CloudWatch Logs サブスクリプションフィルター用IAMロール ---
-resource "aws_iam_role" "cloudwatch_logs_subscription_role" {
-  name = "${var.project_name}-cloudwatch-logs-subscription-role"
+resource "aws_iam_role" "firehose_s3_tables_role" {
+  name = "builders-flash-firehose-s3-tables-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "logs.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name    = "${var.project_name}-cloudwatch-logs-subscription-role"
-    Project = var.project_name
-  }
-}
-
-resource "aws_iam_policy" "cloudwatch_logs_subscription_policy" {
-  name        = "${var.project_name}-cloudwatch-logs-subscription-policy"
-  description = "Policy for CloudWatch Logs to send data to Kinesis Firehose"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
         Action = [
-          "firehose:PutRecord",
-          "firehose:PutRecordBatch"
-        ]
-        Resource = [
-          aws_kinesis_firehose_delivery_stream.api_service_json.arn,
-          aws_kinesis_firehose_delivery_stream.api_service_parquet.arn
-        ]
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "cloudwatch_logs_subscription_policy_attachment" {
-  role       = aws_iam_role.cloudwatch_logs_subscription_role.name
-  policy_arn = aws_iam_policy.cloudwatch_logs_subscription_policy.arn
-}
-
-# Lambda execution role for CloudWatch Logs decompression
-resource "aws_iam_role" "lambda_gzip_decompression_role" {
-  name = "${var.project_name}-lambda-gzip-decompression-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
+        "sts:AssumeRole"],
         Effect = "Allow"
         Principal = {
-          Service = "lambda.amazonaws.com"
+          Service = [
+            "firehose.amazonaws.com"
+          ]
         }
       }
     ]
   })
 }
 
-# Lambda basic execution policy
-resource "aws_iam_role_policy_attachment" "lambda_gzip_basic_execution" {
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-  role       = aws_iam_role.lambda_gzip_decompression_role.name
+resource "aws_iam_policy" "firehose_s3_tables_policy" {
+  name        = "builders-flash-firehose-s3-tables-policy"
+  description = "Policy for Kinesis Firehose to access S3 Tables"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        "Sid": "S3TableAccessViaGlueFederation",
+        "Effect": "Allow",
+        "Action": [
+          "glue:GetTable",
+          "glue:GetDatabase",
+          "glue:UpdateTable"
+        ],
+        "Resource": [
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:catalog/s3tablescatalog/*",
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:catalog/s3tablescatalog",
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:catalog",
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:database/*",
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/*/*"
+        ]
+      },
+      {
+        "Sid": "S3DeliveryErrorBucketPermission",
+        "Effect": "Allow",
+        "Action": [
+          "s3:AbortMultipartUpload",
+          "s3:GetBucketLocation",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:ListBucketMultipartUploads",
+          "s3:PutObject"
+        ],
+        "Resource": [
+          "arn:aws:s3:::*",
+          "arn:aws:s3:::*/*"
+        ]
+      },
+      {
+        "Sid": "RequiredWhenDoingMetadataReadsANDDataAndMetadataWriteViaLakeformation",
+        "Effect": "Allow",
+        "Action": [
+          "lakeformation:GetDataAccess"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "LoggingInCloudWatch",
+        "Effect": "Allow",
+        "Action": [
+          "logs:PutLogEvents"
+        ],
+        "Resource": [
+          "arn:aws:logs:ap-northeast-1:${data.aws_caller_identity.current.account_id}:log-group:*:log-stream:log-*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:AbortMultipartUpload",
+          "s3:GetBucketLocation",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:ListBucketMultipartUploads",
+          "s3:PutObject"
+        ]
+        Resource = [
+          aws_s3_bucket.api_logs_parquet.arn,
+          "${aws_s3_bucket.api_logs_parquet.arn}/*",
+          aws_s3_bucket.api_logs_iceberg.arn,
+          "${aws_s3_bucket.api_logs_iceberg.arn}/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "glue:*"
+        ]
+        Resource = [
+          "*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:PutLogEvents"
+        ]
+        Resource = [
+          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/kinesisfirehose/*:log-stream:*"
+        ]
+      }
+    ]
+  })
 }
 
-# FluentBit task role for Firehose access
-resource "aws_iam_role" "fluent_bit_task_role" {
-  name = "${var.project_name}-fluent-bit-task-role"
+resource "aws_iam_role_policy_attachment" "firehose_s3_tables_policy_attachment" {
+  role       = aws_iam_role.firehose_s3_tables_role.name
+  policy_arn = aws_iam_policy.firehose_s3_tables_policy.arn
+}
+
+resource "aws_iam_role" "glue_role" {
+  name = "glue-role"
 
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      }
-    ]
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow",
+      Principal = {
+        Service = "glue.amazonaws.com"
+      },
+      Action = "sts:AssumeRole"
+    }]
   })
 }
 
-# FluentBit policy for Firehose access
-resource "aws_iam_role_policy" "fluent_bit_firehose_policy" {
-  name = "${var.project_name}-fluent-bit-firehose-policy"
-  role = aws_iam_role.fluent_bit_task_role.id
+resource "aws_iam_role_policy" "glue_policy" {
+  name = "glue-lakeformation-access"
+  role = aws_iam_role.glue_role.name
 
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [
       {
-        Effect = "Allow"
-        Action = [
-          "firehose:PutRecord",
-          "firehose:PutRecordBatch"
-        ]
-        Resource = [
-          aws_kinesis_firehose_delivery_stream.api_service_json.arn,
-          aws_kinesis_firehose_delivery_stream.api_service_parquet.arn
-        ]
+        Sid: "AllowLakeFormationDataAccess",
+        Effect: "Allow",
+        Action: [
+          "lakeformation:GetDataAccess"
+        ],
+        Resource: "*"
+      },
+      {
+        Sid: "AllowGlueAndS3",
+        Effect: "Allow",
+        Action: [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+          "glue:*"
+        ],
+        Resource: "*"
       }
     ]
   })
 }
 
-# FluentBit policy for CloudWatch Logs access
-resource "aws_iam_role_policy" "fluent_bit_cloudwatch_logs_policy" {
-  name = "${var.project_name}-fluent-bit-cloudwatch-logs-policy"
-  role = aws_iam_role.fluent_bit_task_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-          "logs:DescribeLogGroups",
-          "logs:DescribeLogStreams"
-        ]
-        Resource = [
-          "arn:aws:logs:${var.aws_region}:*:log-group:/ecs/api-service-firelens*"
-        ]
-      }
-    ]
-  })
-}

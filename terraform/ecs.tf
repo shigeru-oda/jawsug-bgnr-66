@@ -1,9 +1,3 @@
-# ===================================================
-# ECS Resources - Simplified Architecture
-# API Service sends directly to Firehose
-# ===================================================
-
-# API Service ECR Repository
 resource "aws_ecr_repository" "api_service" {
   name                 = "api-service"
   image_tag_mutability = "MUTABLE"
@@ -11,17 +5,8 @@ resource "aws_ecr_repository" "api_service" {
   image_scanning_configuration {
     scan_on_push = true
   }
-
-
-
-  tags = {
-    Name = "api-service"
-  }
 }
 
-
-
-# ECS Cluster
 resource "aws_ecs_cluster" "main" {
   name = "jawsug-bgnr-66"
 
@@ -33,18 +18,12 @@ resource "aws_ecs_cluster" "main" {
       }
     }
   }
-
   setting {
     name  = "containerInsights"
     value = "enabled"
   }
-
-  tags = {
-    Name = "jawsug-bgnr-66"
-  }
 }
 
-# ECS Task Definition - Simplified
 resource "aws_ecs_task_definition" "api_service" {
   family                   = "api-service"
   network_mode             = "awsvpc"
@@ -105,18 +84,13 @@ resource "aws_ecs_task_definition" "api_service" {
       }
     }
   ])
-
-  tags = {
-    Name = "api-service"
-  }
 }
 
-# ECS Service
 resource "aws_ecs_service" "api_service" {
   name            = "api-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.api_service.arn
-  desired_count   = 1
+  desired_count   = 0
   launch_type     = "FARGATE"
 
   network_configuration {
@@ -136,18 +110,5 @@ resource "aws_ecs_service" "api_service" {
     aws_iam_role_policy_attachment.ecs_task_execution_role_policy,
     aws_iam_role_policy_attachment.ecs_task_role_firehose
   ]
-
-  tags = {
-    Name = "api-service"
-  }
 }
 
-# CloudWatch Log Groups
-resource "aws_cloudwatch_log_group" "ecs_cluster" {
-  name              = "/aws/ecs/cluster/jawsug-bgnr-66"
-  retention_in_days = 7
-
-  tags = {
-    Name = "ECS Cluster Logs"
-  }
-}

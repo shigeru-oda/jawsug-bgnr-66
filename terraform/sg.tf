@@ -16,11 +16,6 @@ resource "aws_security_group" "alb" {
     to_port     = 0
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  tags = {
-    Name    = "${var.project_name}-alb-sg"
-    Project = var.project_name
-  }
 }
 
 resource "aws_security_group" "ecs_tasks" {
@@ -40,10 +35,5 @@ resource "aws_security_group" "ecs_tasks" {
     from_port   = 0
     to_port     = 0
     cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name    = "${var.project_name}-ecs-tasks-sg"
-    Project = var.project_name
   }
 }
