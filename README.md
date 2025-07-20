@@ -109,7 +109,7 @@ terraform apply -target=aws_iam_role.glue_service_role -target=aws_iam_role.fire
 - [AWS コンソールで AWS Lake Formation に移動](https://ap-northeast-1.console.aws.amazon.com/lakeformation/home?region=ap-northeast-1#firstRun)
 - 左ペインの `Administrative roles and tasks` を開く
 - `Data lake administrators` セクションで `Add` をクリック
-- Access type で`Data lake administrator`を選択し、`buildersflash-firehose-role`と`buildersflash-firehose-role` を選択し、`Confirm`をクリック
+- Access type で`Data lake administrator`を選択し、`buildersflash-firehose-role`と`buildersflash-glue-role` を選択し、`Confirm`をクリック
 
 ### terraform 適用（残り）
 
@@ -162,7 +162,7 @@ curl -X GET http://$ALB_DNS/health
 - カタログは`なし`を選択
 - データベースは`buildersflash-buildersflash-logs`を選択
 
-- テーブルは `buildersflash-api-logs-json` または `buildersflash-api-logs-parquet`で`テーブルをプレビュー`を押下することで、10件表示されます。
+- テーブルは `buildersflash-api-logs-json` または `buildersflash-api-logs-parquet`で`テーブルをプレビュー`を押下することで、10 件表示されます。
 - 好きな条件で検索を行ってみてください。
 
 ![](./img/img08.png)
@@ -183,11 +183,13 @@ Amazon Data Firehose からは Amazon S3 Standard のみに反映されるため
     ![](./img/img04.png)
 - json と parquet の両方のバケット分を繰り返します
 
-### icebergへの反映
-parquetのデータからmedataを作成し、iceberg形式にします。
-- [AWS コンソールで AWS Glue へ移動](https://ap-northeast-1.console.aws.amazon.com/gluestudio/home?region=ap-northeast-1#/editor/job/buildersflash-parquet-to-iceberg/script)
-- `Run`ボタン押下
-- TABで`Runs`を選択し、`Running`を選択して、`View details`を押下
+### iceberg への反映
+
+parquet のデータから medata を作成し、iceberg 形式にします。
+
+- [AWS コンソールで AWS Athena へ移動](https://ap-northeast-1.console.aws.amazon.com/athena/home?region=ap-northeast-1#/query-editor/saved-queries)
+- `buildersflash_create_iceberg_table`を選択実行
+- `buildersflash_insert_iceberg_table`を選択実行
 
 ## 環境削除
 
@@ -197,10 +199,11 @@ ECS の`必要なタスク数`を 0 にして、サービスを停止します
 中身があると削除できないリソースはコンソールから削除します
 
 - ECR
-  - api-service
+  - buildersflash-api-service
 - S3 Standard
   - buildersflash-api-logs-json-xxxxxxxx
   - buildersflash-api-logs-parquet-xxxxxxxx
+  - buildersflash-api-logs-iceberg-xxxxxxxx
   - buildersflash-athena-query-results-xxxxxxxx
 - S3 Express One Zone
   - buildersflash-api-logs-json-xxxxxxxx--apne1-az1--x-s3
@@ -228,4 +231,4 @@ Data Lake 管理者を設定を解除します
   - Data lake administrators
     - 自身の USER/Role
     - `buildersflash-firehose-role`
-    - `buildersflash-firehose-role`
+    - `buildersflash-glue-role`
