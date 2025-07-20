@@ -83,3 +83,53 @@ EOT
   description = "View to flatten request_body struct in api_logs_json"
   workgroup   = aws_athena_workgroup.api_logs.name
 }
+
+resource "aws_athena_named_query" "create_iceberg_table" {
+  name        = "${var.project_name}_create_iceberg_table"
+  database    = aws_glue_catalog_database.builders_flash_logs.name
+  query       = <<EOT
+CREATE TABLE buildersflash_buildersflash_logs.buildersflash_api_logs_iceberg (
+  timestamp string,
+  level string,
+  request_id string,
+  client_ip string,
+  http_method string,
+  api_path string,
+  status_code int,
+  response_time_ms int,
+  request_body struct<order_id:string,instrument:string,order_type:string,quantity:int,price:double,side:string>,
+  auth_method string,
+  user_agent string,
+  note string,
+  environment string,
+  region string,
+  ecs_cluster string,
+  ecs_service string,
+  ecs_task_id string,
+  year string,
+  month string,
+  day string
+)
+PARTITIONED BY (year, month, day)
+LOCATION 's3://${aws_s3_bucket.api_logs_iceberg.id}/warehouse/builders_flash_logs.db/api_logs_iceberg/data/'
+TBLPROPERTIES (
+  'table_type'='ICEBERG',
+  'format'='parquet',
+  'write_compression'='snappy'
+)
+EOT
+  description = "create iceberg table"
+  workgroup   = aws_athena_workgroup.api_logs.name
+}
+
+resource "aws_athena_named_query" "insert_iceberg_table" {
+  name        = "${var.project_name}_insert_iceberg_table"
+  database    = aws_glue_catalog_database.builders_flash_logs.name
+  query       = <<EOT
+INSERT INTO buildersflash_buildersflash_logs.buildersflash_api_logs_iceberg
+SELECT * 
+FROM buildersflash_buildersflash_logs.buildersflash_api_logs_parquet
+EOT
+  description = "insert data to iceberg table"
+  workgroup   = aws_athena_workgroup.api_logs.name
+}

@@ -172,71 +172,6 @@ resource "aws_iam_role_policy_attachment" "ecs_task_role_firehose" {
   policy_arn = aws_iam_policy.ecs_firehose_policy.arn
 }
 
-
-
-resource "aws_iam_role" "glue_service_role" {
-  name = "${var.project_name}-glue-service-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "glue.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "glue_service_role_attachment" {
-  role       = aws_iam_role.glue_service_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
-}
-
-resource "aws_iam_policy" "glue_s3_policy" {
-  name        = "${var.project_name}-glue-s3-policy"
-  description = "Policy for Glue to access S3 buckets"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          aws_s3_bucket.api_logs_parquet.arn,
-          "${aws_s3_bucket.api_logs_parquet.arn}/*",
-          aws_s3_bucket.api_logs_json.arn,
-          "${aws_s3_bucket.api_logs_json.arn}/*",
-          aws_s3_directory_bucket.api_logs_parquet_express.arn,
-          "${aws_s3_directory_bucket.api_logs_parquet_express.arn}/*",
-          aws_s3_directory_bucket.api_logs_json_express.arn,
-          "${aws_s3_directory_bucket.api_logs_json_express.arn}/*",
-          aws_s3_bucket.athena_query_results.arn,
-          "${aws_s3_bucket.athena_query_results.arn}/*",
-          aws_s3_bucket.api_logs_iceberg.arn,
-          "${aws_s3_bucket.api_logs_iceberg.arn}/*",
-          aws_s3_bucket.glue_scripts.arn,
-          "${aws_s3_bucket.glue_scripts.arn}/*"
-        ]
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "glue_s3_policy_attachment" {
-  role       = aws_iam_role.glue_service_role.name
-  policy_arn = aws_iam_policy.glue_s3_policy.arn
-}
-
 resource "aws_iam_policy" "athena_policy" {
   name        = "${var.project_name}-athena-policy"
   description = "Policy for Athena to query S3 buckets and Glue tables"
@@ -273,9 +208,7 @@ resource "aws_iam_policy" "athena_policy" {
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject",
-          "s3:ListBucket",
-          "s3:GetBucketLocation"
+          "s3:*"
         ]
         Resource = [
           aws_s3_bucket.api_logs_parquet.arn,
@@ -295,4 +228,129 @@ resource "aws_iam_policy" "athena_policy" {
 resource "aws_iam_role_policy_attachment" "firehose_athena_policy_attachment" {
   role       = aws_iam_role.firehose_role.name
   policy_arn = aws_iam_policy.athena_policy.arn
+}
+
+resource "aws_iam_role" "glue_role" {
+  name = "${var.project_name}-glue-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+        "sts:AssumeRole"],
+        Effect = "Allow"
+        Principal = {
+          Service = [
+            "glue.amazonaws.com"
+          ]
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "glue_policy" {
+  name        = "${var.project_name}-glue-policy"
+  description = "Policy for Glue"
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "glue:*",
+          "s3:GetBucketLocation",
+          "s3:ListBucket",
+          "s3:ListAllMyBuckets",
+          "s3:GetBucketAcl",
+          "ec2:DescribeVpcEndpoints",
+          "ec2:DescribeRouteTables",
+          "ec2:CreateNetworkInterface",
+          "ec2:DeleteNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeVpcAttribute",
+          "iam:ListRolePolicies",
+          "iam:GetRole",
+          "iam:GetRolePolicy",
+          "cloudwatch:PutMetricData"
+        ],
+        "Resource" : [
+          "*"
+        ]
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "s3:CreateBucket",
+          "s3:PutBucketPublicAccessBlock"
+        ],
+        "Resource" : [
+          "arn:aws:s3:::aws-glue-*"
+        ]
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ],
+        "Resource" : [
+          "arn:aws:s3:::aws-glue-*/*",
+          "arn:aws:s3:::*/*aws-glue-*/*"
+        ]
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "s3:GetObject"
+        ],
+        "Resource" : [
+          "arn:aws:s3:::crawler-public*",
+          "arn:aws:s3:::aws-glue-*"
+        ]
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:AssociateKmsKey"
+        ],
+        "Resource" : [
+          "arn:aws:logs:*:*:log-group:/aws-glue/*"
+        ]
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ec2:CreateTags",
+          "ec2:DeleteTags"
+        ],
+        "Condition" : {
+          "ForAllValues:StringEquals" : {
+            "aws:TagKeys" : [
+              "aws-glue-service-resource"
+            ]
+          }
+        },
+        "Resource" : [
+          "arn:aws:ec2:*:*:network-interface/*",
+          "arn:aws:ec2:*:*:security-group/*",
+          "arn:aws:ec2:*:*:instance/*"
+        ]
+      }
+    ]
+    }
+  )
+}
+
+resource "aws_iam_role_policy_attachment" "glue_policy_attachment" {
+  role       = aws_iam_role.glue_role.name
+  policy_arn = aws_iam_policy.glue_policy.arn
 }
