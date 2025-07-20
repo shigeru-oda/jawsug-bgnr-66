@@ -136,7 +136,6 @@ aws ecs update-service \
 
 - [AWS コンソールで ECS に移動](https://ap-northeast-1.console.aws.amazon.com/ecs/v2/clusters/buildersflash-api-service/services/buildersflash-api-service/health?region=ap-northeast-1)
 - タスクが１個起動していることを確認
-- [](./img/img07.png)
 
 ### API へのアクセス
 
