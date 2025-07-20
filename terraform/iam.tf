@@ -300,8 +300,7 @@ resource "aws_iam_policy" "glue_policy" {
           "s3:DeleteObject"
         ],
         "Resource" : [
-          "arn:aws:s3:::aws-glue-*/*",
-          "arn:aws:s3:::*/*aws-glue-*/*"
+          "*"
         ]
       },
       {
@@ -344,7 +343,19 @@ resource "aws_iam_policy" "glue_policy" {
           "arn:aws:ec2:*:*:security-group/*",
           "arn:aws:ec2:*:*:instance/*"
         ]
-      }
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:DeleteObject"
+        ],
+        "Resource" : [
+          "*"
+        ]
+      },
     ]
     }
   )
