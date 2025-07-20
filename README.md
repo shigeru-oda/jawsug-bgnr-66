@@ -1,8 +1,9 @@
 # jawsug-bgnr-66
-初心者のハンズオン資料
-JAWS-UG初心者支部#66 hands-on
-https://jawsug-bgnr.connpass.com/event/360104/
 
+初心者のハンズオン資料  
+JAWS-UG 初心者支部#66 hands-on  
+https://jawsug-bgnr.connpass.com/event/360104/  
+https://aws.amazon.com/jp/builders-flash/202506/comparison-s3-starndard-express-one-zone/
 
 ## 構成図
 
@@ -78,7 +79,7 @@ aws s3api create-bucket \
 ```./terraform/main.tf
 terraform {
   backend "s3" {
-    bucket  = "tfstate-shigeruoda-20250706093342" <- ここを更新
+    bucket  = "tfstate-shigeruoda-20250720095822" <- ここを更新
     key     = "terraform.tfstate"
     region  = "ap-northeast-1"
     encrypt = true
@@ -94,25 +95,49 @@ terraform {
 - Access type で`Data lake administrator`を選択し、IAM users and roles は自身の USER/Role を選択し、`Confirm`をクリック
   ![](./img/img02.png)
 
-### terraform 適用
+### terraform 適用（ROLE 作成）
 
 ```
 cd ./terraform/
 terraform init
+terraform apply -target=aws_iam_role.glue_service_role -target=aws_iam_role.firehose_role
+-> yes
+```
+
+### Data Lake 管理者を設定
+
+- [AWS コンソールで AWS Lake Formation に移動](https://ap-northeast-1.console.aws.amazon.com/lakeformation/home?region=ap-northeast-1#firstRun)
+- 左ペインの `Administrative roles and tasks` を開く
+- `Data lake administrators` セクションで `Add` をクリック
+- Access type で`Data lake administrator`を選択し、`buildersflash-firehose-role`と`buildersflash-firehose-role` を選択し、`Confirm`をクリック
+
+### terraform 適用（残り）
+
+```
 terraform apply
 -> yes
-
-※作成の前後関係設定がイマイチで、terraformが途中で落ちる場合があります。再度terraform applyすることで正常終了ことを確認しています
+-> 5分ほどかかります
 ```
 
-### docker image の push
-
-AWS ログイン情報は事前に設定されていること
+### docker image の build & push
 
 ```
-cd ./docker/
+cd ../docker/
 ./ecr-push.sh
 ```
+
+### TASK 数を 1 に設定
+
+```
+aws ecs update-service \
+  --cluster buildersflash-api-service \
+  --service buildersflash-api-service \
+  --desired-count 1
+```
+
+- [AWS コンソールで ECS に移動](https://ap-northeast-1.console.aws.amazon.com/ecs/v2/clusters/buildersflash-api-service/services/buildersflash-api-service/health?region=ap-northeast-1)
+- タスクが１個起動していることを確認
+- [](./img/img07.png)
 
 ### API へのアクセス
 
@@ -120,30 +145,27 @@ API のアクセス確認で API が通ることを確認します
 
 ```
 # DNS名取得
-DNS_NAME=$(aws elbv2 describe-load-balancers \
-  --names buildersflash-alb \
-  --query 'LoadBalancers[0].DNSName' \
-  --output text
-)
+ALB_DNS=$(aws elbv2 describe-load-balancers --names buildersflash-api-service --region ap-northeast-1 --query 'LoadBalancers[0].DNSName' --output text)
+echo $ALB_DNS
 
 # health
-curl -X GET http://$DNS_NAME/health
+curl -X GET http://$ALB_DNS/health
 -> {"status":"healthy"}
 
-
-# orders
-curl -X POST http://$DNS_NAME/api/v1/orders \
-  -H "Content-Type: application/json" \
-  -H "X-User-ID: user-123" \
-  -d '{"item_id": "item-abc"}'
--> {"order_id":"77f6b"}
-
-# batch
-curl -X POST http://$DNS_NAME/api/v1/batch \
-  -H "Content-Type: application/json" \
-  -d '{"count": 3}'
--> {"results":[{"order_id":"2a0da"},{"order_id":"cc26b"},{"order_id":"04d43"}]}
 ```
+
+### Athena での検索
+
+- [AWS コンソールで Amazon Athena へ移動](https://ap-northeast-1.console.aws.amazon.com/athena/home?region=ap-northeast-1)
+- ワークグループを`buildersflash-api-logs`を選択
+- データソースは`AwsDataCatalog`を選択
+- カタログは`なし`を選択
+- データベースは`buildersflash-buildersflash-logs`を選択
+
+- テーブルは `buildersflash-api-logs-json` または `buildersflash-api-logs-parquet`で`テーブルをプレビュー`を押下することで、10件表示されます。
+- 好きな条件で検索を行ってみてください。
+
+![](./img/img08.png)
 
 ### Amazon S3 Express One Zone への反映
 
@@ -161,23 +183,19 @@ Amazon Data Firehose からは Amazon S3 Standard のみに反映されるため
     ![](./img/img04.png)
 - json と parquet の両方のバケット分を繰り返します
 
-### Athena での検索
-
-- [AWS コンソールで Amazon Athena へ移動](https://ap-northeast-1.console.aws.amazon.com/athena/home?region=ap-northeast-1)
-- ワークグループを`buildersflash-api-logs`を選択
-- データソースは`AwsDataCatalog`を選択
-- カタログは`なし`を選択
-- データベースは`builders_flash_log`を選択
-
-いろんな条件で json、parquet または S3 Standard、S3 Express One Zone での比較を行ってみてください。
-
-![](./img/img05.png)
+### icebergへの反映
+parquetのデータからmedataを作成し、iceberg形式にします。
+- [AWS コンソールで AWS Glue へ移動](https://ap-northeast-1.console.aws.amazon.com/gluestudio/home?region=ap-northeast-1#/editor/job/buildersflash-parquet-to-iceberg/script)
+- `Run`ボタン押下
+- TABで`Runs`を選択し、`Running`を選択して、`View details`を押下
 
 ## 環境削除
-ECSの`必要なタスク数`を0にして、サービスを停止します
+
+ECS の`必要なタスク数`を 0 にして、サービスを停止します
 ![](./img/img06.png)
 
 中身があると削除できないリソースはコンソールから削除します
+
 - ECR
   - api-service
 - S3 Standard
@@ -191,7 +209,8 @@ ECSの`必要なタスク数`を0にして、サービスを停止します
   - ワークグループ
     - buildersflash-api-logs
 
-terraform destroyでリソースを削除します
+terraform destroy でリソースを削除します
+
 ```
 cd ./terraform
 terraform destroy
@@ -199,10 +218,14 @@ terraform destroy
 ```
 
 tfstate 用の S3 を削除します
+
 - S3 Standard
   - "tfstate-${YOUR_NAME}-${CURRENT_TIME}"
 
 Data Lake 管理者を設定を解除します
+
 - AWS Lake Formation
   - Data lake administrators
     - 自身の USER/Role
+    - `buildersflash-firehose-role`
+    - `buildersflash-firehose-role`
