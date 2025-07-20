@@ -1,12 +1,11 @@
 # jawsug-bgnr-66
 
-初心者のハンズオン資料  
-JAWS-UG 初心者支部#66 hands-on  
-https://jawsug-bgnr.connpass.com/event/360104/  
-https://aws.amazon.com/jp/builders-flash/202506/comparison-s3-starndard-express-one-zone/
+[JAWS-UG 初心者支部#66 hands-on](https://jawsug-bgnr.connpass.com/event/360104/)  
+[builders.flash](https://aws.amazon.com/jp/builders-flash/202506/comparison-s3-starndard-express-one-zone/)
 
 ## 構成図
 
+ECS で作成される log を各種 S3 に保存して、Athena で検索することを体験するハンズオンです  
 ![](./img/img01.png)
 
 ## 環境構築手順
@@ -100,7 +99,7 @@ terraform {
 ```
 cd ./terraform/
 terraform init
-terraform apply -target=aws_iam_role.glue_service_role -target=aws_iam_role.firehose_role
+terraform apply -target=aws_iam_role.glue_role -target=aws_iam_role.firehose_role
 -> yes
 ```
 
@@ -126,7 +125,7 @@ cd ../docker/
 ./ecr-push.sh
 ```
 
-### TASK 数を 1 に設定
+### ECS の TASK 数を 1 に設定
 
 ```
 aws ecs update-service \
@@ -193,8 +192,12 @@ parquet のデータから medata を作成し、iceberg 形式にします。
 
 ## 環境削除
 
+### ECS を停止
+
 ECS の`必要なタスク数`を 0 にして、サービスを停止します
 ![](./img/img06.png)
+
+### コンソールから削除
 
 中身があると削除できないリソースはコンソールから削除します
 
@@ -212,6 +215,9 @@ ECS の`必要なタスク数`を 0 にして、サービスを停止します
   - ワークグループ
     - buildersflash-api-logs
 
+
+### terraform から削除
+
 terraform destroy でリソースを削除します
 
 ```
@@ -220,10 +226,16 @@ terraform destroy
 -> yes
 ```
 
+### tfstate 用の S3 削除
+
 tfstate 用の S3 を削除します
+
 
 - S3 Standard
   - "tfstate-${YOUR_NAME}-${CURRENT_TIME}"
+
+
+### Data Lake 管理者解除
 
 Data Lake 管理者を設定を解除します
 
@@ -232,3 +244,4 @@ Data Lake 管理者を設定を解除します
     - 自身の USER/Role
     - `buildersflash-firehose-role`
     - `buildersflash-glue-role`
+
