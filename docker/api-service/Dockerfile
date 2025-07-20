@@ -53,14 +53,14 @@ LABEL org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${GIT_HASH}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.title="API Service" \
-      org.opencontainers.image.description="FastAPI service with FireLens logging" \
+      org.opencontainers.image.description="FastAPI service with direct Kinesis Firehose logging" \
       org.opencontainers.image.base.name="python:3.13-slim"
 
 # Expose port for API
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=10s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8000/health', timeout=5)" || exit 1
 
 # Run the application

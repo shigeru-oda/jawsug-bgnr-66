@@ -1,5 +1,5 @@
 resource "aws_kinesis_firehose_delivery_stream" "api_service_json" {
-  name        = "api-service-json-firehose"
+  name        = "${var.project_name}-api-service-json"
   destination = "extended_s3"
 
   extended_s3_configuration {
@@ -22,7 +22,7 @@ resource "aws_kinesis_firehose_delivery_stream" "api_service_json" {
 }
 
 resource "aws_kinesis_firehose_delivery_stream" "api_service_parquet" {
-  name        = "api-service-parquet-firehose"
+  name        = "${var.project_name}-api-service-parquet"
   destination = "extended_s3"
 
   extended_s3_configuration {
@@ -39,13 +39,13 @@ resource "aws_kinesis_firehose_delivery_stream" "api_service_parquet" {
     # Parquet形式への変換設定
     data_format_conversion_configuration {
       enabled = true
-      
+
       input_format_configuration {
         deserializer {
           open_x_json_ser_de {}
         }
       }
-      
+
       output_format_configuration {
         serializer {
           parquet_ser_de {
@@ -53,7 +53,7 @@ resource "aws_kinesis_firehose_delivery_stream" "api_service_parquet" {
           }
         }
       }
-      
+
       schema_configuration {
         database_name = aws_glue_catalog_database.builders_flash_logs.name
         table_name    = aws_glue_catalog_table.api_logs_parquet.name

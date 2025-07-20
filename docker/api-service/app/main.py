@@ -1,22 +1,16 @@
 import json
-import logging
 import os
 import random
 import time
 import uuid
 import requests
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 import boto3
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from pythonjsonlogger import jsonlogger
-
-# TCP接続は不要 - Firelensを使用
 
 app = FastAPI(title="API Service")
 
@@ -63,27 +57,14 @@ def send_to_firehose(json_data: Dict[str, Any], parquet_data: Optional[Dict[str,
         error_log = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "level": "ERROR",
-            "message": f"Failed to send to Firehose: {str(e)}",
             "service": "api-service",
+            "message": f"Failed to send to Firehose: {str(e)}",
             "firehose_streams": {
                 "json": FIREHOSE_JSON_STREAM,
                 "parquet": FIREHOSE_PARQUET_STREAM
             }
         }
         print(json.dumps(error_log))
-
-# アプリケーション起動時のログ
-startup_log = {
-    "timestamp": datetime.utcnow().isoformat() + "Z",
-    "level": "INFO",
-    "message": "API Service starting up with direct Firehose integration",
-    "service": "api-service",
-    "firehose_streams": {
-        "json": FIREHOSE_JSON_STREAM,
-        "parquet": FIREHOSE_PARQUET_STREAM
-    }
-}
-send_to_firehose(startup_log)
 
 # --- ECSメタデータ取得関数 ---
 def get_ecs_metadata():
@@ -112,9 +93,11 @@ def get_ecs_metadata():
                     if len(cluster_parts) >= 2:
                         metadata["cluster"] = cluster_parts[-1]
         except Exception as e:
+            # 関数定義前のため一時的に従来形式
             metadata_log = {
                 "timestamp": datetime.utcnow().isoformat() + "Z",
                 "level": "WARNING",
+                "service": "api-service",
                 "message": f"Failed to retrieve ECS metadata: {str(e)}"
             }
             print(json.dumps(metadata_log))
@@ -129,18 +112,6 @@ def get_ecs_metadata():
     return metadata
 
 ecs_metadata = get_ecs_metadata()
-
-# ECSメタデータ取得後のログ
-metadata_log = {
-    "timestamp": datetime.utcnow().isoformat() + "Z",
-    "level": "INFO",
-    "message": "ECS metadata retrieved",
-    "ecs_metadata": ecs_metadata,
-    "service": "api-service"
-}
-# Parquetにも詳細な内容を送信
-send_to_firehose(metadata_log, metadata_log)
-
 
 # --- ランダムな認証・環境値を生成する関数 ---
 def generate_random_values():
@@ -175,23 +146,114 @@ def generate_random_order_data():
         "side": random.choice(sides)
     }
 
-logger = logging.getLogger("api_logger")
-logger.setLevel(logging.INFO)
-
-console_handler = logging.StreamHandler()
-logger.addHandler(console_handler)
-
-class OrderRequest(BaseModel):
-    item_id: str
-
-class OrderResponse(BaseModel):
-    order_id: str
+# --- 統一ログフォーマット関数（メインHTTPログと同じ属性構造）---
+def create_log_entry(
+    level: str = "INFO",
+    message: str = "",
+    request_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    http_method: Optional[str] = None,
+    api_path: Optional[str] = None,
+    status_code: Optional[int] = None,
+    response_time_ms: Optional[int] = None,
+    client_ip: Optional[str] = None,
+    request_body: Optional[Dict[str, Any]] = None,
+    auth_method: Optional[str] = None,
+    user_agent: Optional[str] = None,
+    note: str = "",
+    environment: Optional[str] = None,
+    region: Optional[str] = None,
+    ecs_cluster: Optional[str] = None,
+    ecs_service: Optional[str] = None,
+    ecs_task_id: Optional[str] = None,
+    **additional_fields
+) -> Dict[str, Any]:
+    """
+    メインHTTPログと同じ属性構造で統一されたログエントリを作成
+    HTTPコンテキスト外では一部フィールドはデフォルト値を使用
+    """
+    # デフォルト値を生成
+    random_values = generate_random_values()
     
-class BatchRequest(BaseModel):
-    count: int
+    log_entry = {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "level": level,
+        "service": "api-service",
+        "request_id": request_id or "",
+        "user_id": user_id or "anonymous",
+        "client_ip": client_ip or "",
+        "http_method": http_method or "",
+        "api_path": api_path or "",
+        "status_code": status_code or 0,
+        "response_time_ms": response_time_ms or 0,
+        "request_body": request_body or {},
+        "auth_method": auth_method or random_values.get("auth_method", "Unknown"),
+        "user_agent": user_agent or random_values.get("user_agent", "Unknown"),
+        "note": note,
+        "message": message,
+        "environment": environment or random_values.get("environment", "unknown"),
+        "region": region or random_values.get("region", "ap-northeast-1"),
+        "ecs_cluster": ecs_cluster or ecs_metadata.get("cluster", ""),
+        "ecs_service": ecs_service or ecs_metadata.get("service", ""),
+        "ecs_task_id": ecs_task_id or ecs_metadata.get("task_id", "")
+    }
+    
+    # 追加フィールドをマージ
+    log_entry.update(additional_fields)
+    
+    return log_entry
 
-class BatchResponse(BaseModel):
-    results: List[OrderResponse]
+# --- 共通化された便利関数 ---
+def log_and_send(level: str = "INFO", message: str = "", send_parquet: bool = True, **kwargs):
+    """ログ作成とFirehose送信を一つにまとめた関数"""
+    log_entry = create_log_entry(level=level, message=message, **kwargs)
+    parquet_data = log_entry if send_parquet else None
+    send_to_firehose(log_entry, parquet_data)
+    return log_entry
+
+def extract_request_info(request: Request) -> Dict[str, Any]:
+    """HTTPリクエストから基本情報を抽出"""
+    return {
+        "request_id": str(uuid.uuid4()),
+        "user_id": request.headers.get("X-User-ID", "anonymous"),
+        "client_ip": request.client.host if request.client else "unknown",
+        "http_method": request.method,
+        "api_path": request.url.path
+    }
+
+def handle_error_with_log(error: Exception, context: str = "", request_id: str = ""):
+    """エラー処理とログ出力を統合"""
+    log_and_send(
+        level="ERROR",
+        message=f"Error in {context}: {str(error)}",
+        request_id=request_id,
+        error_context=context
+    )
+
+def generate_full_context() -> Dict[str, Any]:
+    """ランダム値とECSメタデータを含む完全なコンテキストを生成"""
+    random_values = generate_random_values()
+    random_order = generate_random_order_data()
+    
+    return {
+        **random_values,
+        "request_body": random_order,
+        "ecs_cluster": ecs_metadata.get("cluster"),
+        "ecs_service": ecs_metadata.get("service"),
+        "ecs_task_id": ecs_metadata.get("task_id")
+    }
+
+# --- 統一ログフォーマット関数定義後に初期ログを送信 ---
+# 起動時ログとECSメタデータログを共通化関数で簡潔に送信
+log_and_send(
+    message="API Service starting up with direct Firehose integration",
+    firehose_streams={"json": FIREHOSE_JSON_STREAM, "parquet": FIREHOSE_PARQUET_STREAM}
+)
+
+log_and_send(
+    message="ECS metadata retrieved",
+    ecs_metadata=ecs_metadata
+)
 
 # --- FastAPIのリクエストロギング用ミドルウェア ---
 @app.middleware("http")
@@ -227,13 +289,7 @@ async def log_requests(request: Request, call_next):
             if body_bytes:
                 request_body = json.loads(body_bytes)
         except Exception as e:
-            error_log = {
-                "timestamp": datetime.utcnow().isoformat() + "Z",
-                "level": "ERROR",
-                "message": f"Error parsing request body: {str(e)}",
-                "service": "api-service"
-            }
-            send_to_firehose(error_log)
+            handle_error_with_log(e, "parsing request body", request_id)
     else:
         response = await call_next(request)
     
@@ -246,37 +302,22 @@ async def log_requests(request: Request, call_next):
             if response_body_bytes:
                 response_body = json.loads(response_body_bytes)
         except Exception as e:
-            error_log = {
-                "timestamp": datetime.utcnow().isoformat() + "Z",
-                "level": "ERROR",
-                "message": f"Error parsing response body: {str(e)}",
-                "service": "api-service"
-            }
-            send_to_firehose(error_log)
+            handle_error_with_log(e, "parsing response body", request_id)
     
-    random_values = generate_random_values()
-    random_order = generate_random_order_data()
-    
-    log_entry = {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "level": "ERROR" if response.status_code >= 400 else "INFO",
-        "request_id": request_id,
-        "user_id": user_id,
-        "client_ip": source_ip,
-        "http_method": request.method,
-        "api_path": request.url.path,
-        "status_code": response.status_code,
-        "response_time_ms": response_time_ms,
-        "request_body": random_order,
-        "auth_method": random_values["auth_method"],
-        "user_agent": random_values["user_agent"],
-        "note": "",
-        "environment": random_values["environment"],
-        "region": random_values["region"],
-        "ecs_cluster": ecs_metadata.get("cluster"),
-        "ecs_service": ecs_metadata.get("service"),
-        "ecs_task_id": ecs_metadata.get("task_id"),
-    }
+    # 共通化関数でコンテキスト生成とログエントリ作成
+    context = generate_full_context()
+    log_entry = create_log_entry(
+        level="ERROR" if response.status_code >= 400 else "INFO",
+        request_id=request_id,
+        user_id=user_id,
+        client_ip=source_ip,
+        http_method=request.method,
+        api_path=request.url.path,
+        status_code=response.status_code,
+        response_time_ms=response_time_ms,
+        note="",
+        **context
+    )
     
     target_size = 1000
     
@@ -311,56 +352,12 @@ async def log_requests(request: Request, call_next):
 async def root():
     return {"message": "API Service is running"}
 
-# --- 単一注文作成エンドポイント ---
-@app.post("/api/v1/orders", response_model=OrderResponse, status_code=201)
-async def create_order(order: OrderRequest, response: Response):
-    response.headers["X-Status-Message"] = "Created"
-    
-    order_id = str(uuid.uuid4())[:5]
-    
-    return {"order_id": order_id}
-
-# --- バッチ注文作成エンドポイント ---
-@app.post("/api/v1/batch", response_model=BatchResponse, status_code=201)
-async def create_batch_orders(batch: BatchRequest, response: Response):
-    response.headers["X-Status-Message"] = "Created"
-    
-    results = []
-    
-    for _ in range(batch.count):
-        random_user_id = str(uuid.uuid4())
-        random_item_id = f"item-{str(uuid.uuid4())[:8]}"
-        
-        batch_log = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "level": "INFO",
-            "message": f"Processing batch order with X-User-ID: {random_user_id}, item_id: {random_item_id}",
-            "service": "api-service"
-        }
-        # Parquetにも詳細な内容を送信
-        send_to_firehose(batch_log, batch_log)
-        
-        order_request = OrderRequest(item_id=random_item_id)
-        order_id = str(uuid.uuid4())[:5]
-        results.append(OrderResponse(order_id=order_id))
-    
-    return {"results": results}
-
 # --- ヘルスチェックエンドポイント ---
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
 
-if __name__ == "__main__":
-    server_start_log = {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "level": "INFO",
-        "message": "Starting uvicorn server on 0.0.0.0:8000",
-        "service": "api-service"
-    }
-    # Parquetにも詳細な内容を送信
-    send_to_firehose(server_start_log, server_start_log)
-    
+if __name__ == "__main__":    
     uvicorn.run(
         "main:app",
         host="0.0.0.0",

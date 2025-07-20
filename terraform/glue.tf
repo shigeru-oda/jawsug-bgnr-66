@@ -1,9 +1,9 @@
 resource "aws_glue_catalog_database" "builders_flash_logs" {
-  name = "builders_flash_logs"
+  name = "${var.project_name}-buildersflash-logs"
 }
 # S3 Standard/JSON+GZIP圧縮
 resource "aws_glue_catalog_table" "api_logs_json" {
-  name          = "api_logs_json"
+  name          = "${var.project_name}-api-logs-json"
   database_name = aws_glue_catalog_database.builders_flash_logs.name
 
   table_type = "EXTERNAL_TABLE"
@@ -128,7 +128,7 @@ resource "aws_glue_catalog_table" "api_logs_json" {
 
 # S3 Standard/Parquet
 resource "aws_glue_catalog_table" "api_logs_parquet" {
-  name          = "api_logs_parquet"
+  name          = "${var.project_name}-api-logs-parquet"
   database_name = aws_glue_catalog_database.builders_flash_logs.name
 
   table_type = "EXTERNAL_TABLE"
@@ -250,7 +250,7 @@ resource "aws_glue_catalog_table" "api_logs_parquet" {
 
 # S3 Express One Zone/JSON+GZIP圧縮
 resource "aws_glue_catalog_table" "api_logs_json_express" {
-  name          = "api_logs_json_express"
+  name          = "${var.project_name}-api-logs-json-express"
   database_name = aws_glue_catalog_database.builders_flash_logs.name
 
   table_type = "EXTERNAL_TABLE"
@@ -375,7 +375,7 @@ resource "aws_glue_catalog_table" "api_logs_json_express" {
 
 # S3 Express One Zone/Parquet
 resource "aws_glue_catalog_table" "api_logs_parquet_express" {
-  name          = "api_logs_parquet_express"
+  name          = "${var.project_name}-api-logs-parquet-express"
   database_name = aws_glue_catalog_database.builders_flash_logs.name
 
   table_type = "EXTERNAL_TABLE"
@@ -407,7 +407,7 @@ resource "aws_glue_catalog_table" "api_logs_parquet_express" {
         "serialization.format" = "1"
       }
     }
-    
+
     columns {
       name = "timestamp"
       type = "string"
@@ -496,16 +496,16 @@ resource "aws_glue_catalog_table" "api_logs_parquet_express" {
 
 # Iceberg形式のAPIログテーブル（既存データベースを使用）
 resource "aws_glue_catalog_table" "api_logs_iceberg" {
-  name          = "api_logs_iceberg"
+  name          = "${var.project_name}-api-logs-iceberg"
   database_name = aws_glue_catalog_database.builders_flash_logs.name
   description   = "API logs in Iceberg table format"
 
   table_type = "EXTERNAL_TABLE"
 
   parameters = {
-    "table_type"     = "ICEBERG"
-    "format"         = "iceberg"
-    "write.format.default" = "parquet"
+    "table_type"                      = "ICEBERG"
+    "format"                          = "iceberg"
+    "write.format.default"            = "parquet"
     "write.parquet.compression-codec" = "gzip"
   }
 
@@ -620,11 +620,11 @@ df = spark.read.parquet("s3://${aws_s3_bucket.api_logs_parquet.id}/api-logs-parq
 record_count = df.count()
 print(f"Processing {record_count} records")
 
-# Icebergテーブルを作成（初回実行）
-print("Creating Iceberg table...")
+# IcebergテーブルにデータをAppend（初回でも自動でテーブル作成）
+print("Writing data to Iceberg table...")
 df.write \
   .format("iceberg") \
-  .mode("overwrite") \
+  .mode("append") \
   .option("write.format.default", "parquet") \
   .option("write.parquet.compression-codec", "snappy") \
   .saveAsTable("glue_catalog.builders_flash_logs.api_logs_iceberg")
@@ -639,10 +639,10 @@ EOT
 resource "aws_s3_object" "parquet_to_iceberg_script" {
   bucket = aws_s3_bucket.glue_scripts.id
   key    = "scripts/parquet_to_iceberg.py"
-  
+
   content      = local.glue_script
   content_type = "text/plain"
-  
+
   tags = {
     Name    = "${var.project_name}-parquet-to-iceberg-script"
     Purpose = "Convert Parquet data to Iceberg table"
@@ -667,7 +667,7 @@ resource "aws_glue_job" "parquet_to_iceberg" {
   }
 
   default_arguments = {
-    "--job-language"                      = "python"
+    "--job-language"                     = "python"
     "--enable-continuous-cloudwatch-log" = "true"
     "--enable-glue-datacatalog"          = "true"
     "--datalake-formats"                 = "iceberg"
@@ -676,15 +676,4 @@ resource "aws_glue_job" "parquet_to_iceberg" {
     "--spark-event-logs-path"            = "s3://${aws_s3_bucket.glue_scripts.id}/spark-logs/"
     "--conf"                             = "spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions --conf spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog --conf spark.sql.catalog.glue_catalog.warehouse=s3://${aws_s3_bucket.api_logs_iceberg.id}/warehouse/ --conf spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO --conf spark.serializer=org.apache.spark.serializer.KryoSerializer"
   }
-
-  tags = {
-    Name    = "${var.project_name}-parquet-to-iceberg"
-    Purpose = "Convert api_logs_parquet data to api_logs_iceberg table"
-  }
-}
-
-# Glue Jobのoutput
-output "parquet_to_iceberg_job_name" {
-  description = "Name of the Glue job that converts Parquet to Iceberg"
-  value       = aws_glue_job.parquet_to_iceberg.name
 }

@@ -1,5 +1,5 @@
 resource "aws_security_group" "alb" {
-  name        = "${var.project_name}-alb-sg"
+  name        = "${var.project_name}-alb"
   description = "Allow inbound traffic to ALB"
   vpc_id      = aws_vpc.main.id
 
@@ -19,7 +19,7 @@ resource "aws_security_group" "alb" {
 }
 
 resource "aws_security_group" "ecs_tasks" {
-  name        = "${var.project_name}-ecs-tasks-sg"
+  name        = "${var.project_name}-ecs-tasks"
   description = "Allow inbound traffic to ECS tasks from ALB only"
   vpc_id      = aws_vpc.main.id
 
