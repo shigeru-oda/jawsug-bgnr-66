@@ -22,7 +22,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Name     = "buildersflash"
+      Name = "buildersflash"
     }
   }
 }

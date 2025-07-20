@@ -17,9 +17,9 @@ resource "aws_athena_workgroup" "api_logs" {
 }
 
 resource "aws_athena_named_query" "api_logs_parquet_flat_view" {
-  name      = "api_logs_parquet_flat_view"
-  database  = aws_glue_catalog_database.builders_flash_logs.name
-  query     = <<EOT
+  name        = "${var.project_name}-api_logs_parquet_flat_view"
+  database    = aws_glue_catalog_database.builders_flash_logs.name
+  query       = <<EOT
 CREATE OR REPLACE VIEW api_logs_parquet_flat_view AS
 SELECT
   timestamp,
@@ -51,9 +51,9 @@ EOT
 }
 
 resource "aws_athena_named_query" "api_logs_json_flat_view" {
-  name      = "api_logs_json_flat_view"
-  database  = aws_glue_catalog_database.builders_flash_logs.name
-  query     = <<EOT
+  name        = "${var.project_name}-api_logs_json_flat_view"
+  database    = aws_glue_catalog_database.builders_flash_logs.name
+  query       = <<EOT
 CREATE OR REPLACE VIEW api_logs_json_flat_view AS
 SELECT
   timestamp,

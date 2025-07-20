@@ -1,5 +1,5 @@
 resource "aws_ecr_repository" "api_service" {
-  name                 = "api-service"
+  name                 = "${var.project_name}-api-service"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
@@ -7,8 +7,8 @@ resource "aws_ecr_repository" "api_service" {
   }
 }
 
-resource "aws_ecs_cluster" "main" {
-  name = "jawsug-bgnr-66"
+resource "aws_ecs_cluster" "api_service" {
+  name = "${var.project_name}-api-service"
 
   configuration {
     execute_command_configuration {
@@ -18,38 +18,34 @@ resource "aws_ecs_cluster" "main" {
       }
     }
   }
-  setting {
-    name  = "containerInsights"
-    value = "enabled"
-  }
 }
 
 resource "aws_ecs_task_definition" "api_service" {
-  family                   = "api-service"
+  family                   = "${var.project_name}-api-service"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = "1024"
   memory                   = "2048"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn           = aws_iam_role.ecs_task_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
 
   container_definitions = jsonencode([
     {
       name  = "api-service"
       image = "${aws_ecr_repository.api_service.repository_url}:latest"
-      
+
       cpu    = 1024
       memory = 2048
-      
+
       essential = true
-      
+
       portMappings = [
         {
           containerPort = 8000
           protocol      = "tcp"
         }
       ]
-      
+
       environment = [
         {
           name  = "AWS_DEFAULT_REGION"
@@ -57,7 +53,7 @@ resource "aws_ecs_task_definition" "api_service" {
         },
         {
           name  = "ECS_CLUSTER_NAME"
-          value = aws_ecs_cluster.main.name
+          value = aws_ecs_cluster.api_service.name
         },
         {
           name  = "ECS_SERVICE_NAME"
@@ -72,7 +68,7 @@ resource "aws_ecs_task_definition" "api_service" {
           value = aws_kinesis_firehose_delivery_stream.api_service_parquet.name
         }
       ]
-      
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -87,8 +83,8 @@ resource "aws_ecs_task_definition" "api_service" {
 }
 
 resource "aws_ecs_service" "api_service" {
-  name            = "api-service"
-  cluster         = aws_ecs_cluster.main.id
+  name            = "${var.project_name}-api-service"
+  cluster         = aws_ecs_cluster.api_service.id
   task_definition = aws_ecs_task_definition.api_service.arn
   desired_count   = 0
   launch_type     = "FARGATE"
@@ -104,11 +100,5 @@ resource "aws_ecs_service" "api_service" {
     container_name   = "api-service"
     container_port   = 8000
   }
-
-  depends_on = [
-    aws_lb_listener.api_service,
-    aws_iam_role_policy_attachment.ecs_task_execution_role_policy,
-    aws_iam_role_policy_attachment.ecs_task_role_firehose
-  ]
 }
 

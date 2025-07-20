@@ -9,7 +9,7 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 ECR_REGISTRY=${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
 
 # ECR関連の変数
-API_REPOSITORY_NAME="api-service"
+API_REPOSITORY_NAME="buildersflash-api-service"
 
 # BuildKit設定
 export DOCKER_BUILDKIT=1
@@ -18,6 +18,11 @@ export BUILDKIT_PROGRESS=plain
 # Git の現在のコミットを短縮形式で取得
 GIT_HASH=$(git rev-parse --short HEAD)
 BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# ---------------------------------------------------
+# 認証トークン取得
+# ---------------------------------------------------
+aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
 
 # ---------------------------------------------------
 # API Service のビルド
