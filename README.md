@@ -162,8 +162,8 @@ API のアクセス確認で API が通ることを確認します
 
 ```
 # DNS名取得
-
-
+ALB_DNS=$(aws elbv2 describe-load-balancers --names buildersflash-api-service --region ap-northeast-1 --query 'LoadBalancers[0].DNSName' --output text)
+echo $ALB_DNS
 
 # health
 curl -X GET http://$ALB_DNS/health
