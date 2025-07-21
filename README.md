@@ -27,8 +27,8 @@ aws-cli/2.27.12 Python/3.13.3 Darwin/24.4.0 exe/x86_64
 リンク先の手順書を参考に Terraform を Install をして下さい  
 https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli
 
-macでAppleSilicon.comで利用 最新のM1〜M3でTerraform入れれない方には
-`ターミナル右クリックでRosetta利用にチェック`
+macでAppleSilicon.comで利用 最新のM1〜M3でTerraform入れれない方には  
+`ターミナル右クリックでRosetta利用にチェック`  
 それでもInstallできない方は `arch −arm64 brew install terraform`を試してみてください
 
 私の Version は以下で利用しています
