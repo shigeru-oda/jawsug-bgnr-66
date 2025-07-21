@@ -31,8 +31,10 @@ https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli
 
 ```
 % terraform --version
-Terraform v1.11.4
+Terraform v1.12.2
 on darwin_arm64
++ provider registry.terraform.io/hashicorp/aws v6.3.0
++ provider registry.terraform.io/hashicorp/random v3.7.2
 ```
 
 ### Install git（未 Install の場合）
