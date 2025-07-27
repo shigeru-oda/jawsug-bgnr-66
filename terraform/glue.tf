@@ -1,6 +1,7 @@
 resource "aws_glue_catalog_database" "builders_flash_logs" {
   name = "${var.project_name}_buildersflash_logs"
 }
+
 # S3 Standard/JSON
 resource "aws_glue_catalog_table" "api_logs_json" {
   name          = "${var.project_name}_api_logs_json"
@@ -164,6 +165,256 @@ resource "aws_glue_catalog_table" "api_logs_parquet" {
     }
 
     # Parquet用テーブルのcolumnsをjsonテーブルの順序に合わせて並べ替え、http_method, client_ip, api_pathも追加
+    columns {
+      name = "timestamp"
+      type = "string"
+    }
+    columns {
+      name = "level"
+      type = "string"
+    }
+    columns {
+      name = "request_id"
+      type = "string"
+    }
+    columns {
+      name = "client_ip"
+      type = "string"
+    }
+    columns {
+      name = "http_method"
+      type = "string"
+    }
+    columns {
+      name = "api_path"
+      type = "string"
+    }
+    columns {
+      name = "status_code"
+      type = "int"
+    }
+    columns {
+      name = "response_time_ms"
+      type = "int"
+    }
+    columns {
+      name = "request_body"
+      type = "struct<order_id:string,instrument:string,order_type:string,quantity:int,price:double,side:string>"
+    }
+    columns {
+      name = "auth_method"
+      type = "string"
+    }
+    columns {
+      name = "user_agent"
+      type = "string"
+    }
+    columns {
+      name = "note"
+      type = "string"
+    }
+    columns {
+      name = "environment"
+      type = "string"
+    }
+    columns {
+      name = "region"
+      type = "string"
+    }
+    columns {
+      name = "ecs_cluster"
+      type = "string"
+    }
+    columns {
+      name = "ecs_service"
+      type = "string"
+    }
+    columns {
+      name = "ecs_task_id"
+      type = "string"
+    }
+  }
+
+  partition_keys {
+    name = "year"
+    type = "string"
+  }
+
+  partition_keys {
+    name = "month"
+    type = "string"
+  }
+
+  partition_keys {
+    name = "day"
+    type = "string"
+  }
+}
+
+# S3 Express One Zone/JSON GZIP
+resource "aws_glue_catalog_table" "api_logs_json_gz_express" {
+  name          = "buildersflash_api_logs_json_gz_express"
+  database_name = aws_glue_catalog_database.builders_flash_logs.name
+
+  table_type = "EXTERNAL_TABLE"
+
+  parameters = {
+    "classification"            = "json"
+    "typeOfData"                = "file"
+    "projection.enabled"        = "true"
+    "projection.year.type"      = "integer"
+    "projection.year.range"     = "2024,2026"
+    "projection.month.type"     = "integer"
+    "projection.month.range"    = "1,12"
+    "projection.month.digits"   = "2"
+    "projection.day.type"       = "integer"
+    "projection.day.range"      = "1,31"
+    "projection.day.digits"     = "2"
+    "storage.location.template" = "s3://${aws_s3_directory_bucket.api_logs_json_gz_express.bucket}/api-logs-json-gz/year=$${year}/month=$${month}/day=$${day}"
+    "compressionType"           = "gzip"
+  }
+
+  storage_descriptor {
+    location      = "s3://${aws_s3_directory_bucket.api_logs_json_gz_express.bucket}/api-logs-json-gz/"
+    input_format  = "org.apache.hadoop.mapred.TextInputFormat"
+    output_format = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+
+    ser_de_info {
+      name                  = "json-serde"
+      serialization_library = "org.openx.data.jsonserde.JsonSerDe"
+      parameters = {
+        "ignore.malformed.json" = "true"
+        "dots.in.keys"          = "false"
+        "case.insensitive"      = "true"
+        "mapping"               = "true"
+      }
+    }
+
+    columns {
+      name = "timestamp"
+      type = "string"
+    }
+    columns {
+      name = "level"
+      type = "string"
+    }
+    columns {
+      name = "request_id"
+      type = "string"
+    }
+    columns {
+      name = "client_ip"
+      type = "string"
+    }
+    columns {
+      name = "http_method"
+      type = "string"
+    }
+    columns {
+      name = "api_path"
+      type = "string"
+    }
+    columns {
+      name = "status_code"
+      type = "int"
+    }
+    columns {
+      name = "response_time_ms"
+      type = "int"
+    }
+    columns {
+      name = "request_body"
+      type = "struct<order_id:string,instrument:string,order_type:string,quantity:int,price:double,side:string>"
+    }
+    columns {
+      name = "auth_method"
+      type = "string"
+    }
+    columns {
+      name = "user_agent"
+      type = "string"
+    }
+    columns {
+      name = "note"
+      type = "string"
+    }
+    columns {
+      name = "environment"
+      type = "string"
+    }
+    columns {
+      name = "region"
+      type = "string"
+    }
+    columns {
+      name = "ecs_cluster"
+      type = "string"
+    }
+    columns {
+      name = "ecs_service"
+      type = "string"
+    }
+    columns {
+      name = "ecs_task_id"
+      type = "string"
+    }
+  }
+
+  partition_keys {
+    name = "year"
+    type = "string"
+  }
+
+  partition_keys {
+    name = "month"
+    type = "string"
+  }
+
+  partition_keys {
+    name = "day"
+    type = "string"
+  }
+}
+
+# S3 Standard/JSON GZIP
+resource "aws_glue_catalog_table" "api_logs_json_gz" {
+  name          = "${var.project_name}_api_logs_json_gz"
+  database_name = aws_glue_catalog_database.builders_flash_logs.name
+
+  table_type = "EXTERNAL_TABLE"
+
+  parameters = {
+    "classification"            = "json"
+    "typeOfData"                = "file"
+    "projection.enabled"        = "true"
+    "projection.year.type"      = "integer"
+    "projection.year.range"     = "2024,2026"
+    "projection.month.type"     = "integer"
+    "projection.month.range"    = "1,12"
+    "projection.month.digits"   = "2"
+    "projection.day.type"       = "integer"
+    "projection.day.range"      = "1,31"
+    "projection.day.digits"     = "2"
+    "storage.location.template" = "s3://${aws_s3_bucket.api_logs_json_gz.bucket}/api-logs-json-gz/year=$${year}/month=$${month}/day=$${day}"
+    "compressionType"           = "gzip"
+  }
+
+  storage_descriptor {
+    location      = "s3://${aws_s3_bucket.api_logs_json_gz.bucket}/api-logs-json-gz/"
+    input_format  = "org.apache.hadoop.mapred.TextInputFormat"
+    output_format = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+
+    ser_de_info {
+      name                  = "json-serde"
+      serialization_library = "org.openx.data.jsonserde.JsonSerDe"
+      parameters = {
+        "ignore.malformed.json" = "true"
+        "dots.in.keys"          = "false"
+        "case.insensitive"      = "true"
+        "mapping"               = "true"
+      }
+    }
+
     columns {
       name = "timestamp"
       type = "string"

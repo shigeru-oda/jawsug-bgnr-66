@@ -3,9 +3,11 @@
 ```
 FastAPI Application
        ↓ Direct boto3 API calls
-Kinesis Firehose (2 streams)
-       ├── buildersflash-api-service-json → S3 (JSON bucket)
-       └── buildersflash-api-service-parquet → S3 (Parquet bucket)
+Kinesis Firehose (4 streams)
+       ├── buildersflash-api-service-json → S3 (JSON bucket, uncompressed)
+       ├── buildersflash-api-service-json-gz → S3 (JSON bucket, GZIP compressed)
+       ├── buildersflash-api-service-iceberg → S3 (Iceberg table, ACID transactions)
+       └── buildersflash-api-service-parquet → S3 (Parquet bucket, optimized queries)
 ```
 
 # ALB_DNSを取得

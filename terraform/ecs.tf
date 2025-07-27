@@ -100,5 +100,10 @@ resource "aws_ecs_service" "api_service" {
     container_name   = "api-service"
     container_port   = 8000
   }
+
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
 }
+
 

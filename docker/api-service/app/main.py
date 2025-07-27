@@ -26,13 +26,15 @@ app.add_middleware(
 firehose_client = boto3.client('firehose', region_name=os.environ.get('AWS_DEFAULT_REGION', 'ap-northeast-1'))
 
 # Firehose stream names (from environment variables)
-FIREHOSE_JSON_STREAM = os.environ.get('FIREHOSE_JSON_STREAM', 'api-service-json-firehose')
-FIREHOSE_PARQUET_STREAM = os.environ.get('FIREHOSE_PARQUET_STREAM', 'api-service-parquet-firehose')
+FIREHOSE_JSON_STREAM = os.environ.get('FIREHOSE_JSON_STREAM', 'buildersflash-api-service-json')
+FIREHOSE_JSON_GZ_STREAM = os.environ.get('FIREHOSE_JSON_GZ_STREAM', 'buildersflash-api-service-json-gz')
+FIREHOSE_ICEBERG_STREAM = os.environ.get('FIREHOSE_ICEBERG_STREAM', 'buildersflash-api-service-iceberg')
+FIREHOSE_PARQUET_STREAM = os.environ.get('FIREHOSE_PARQUET_STREAM', 'buildersflash-api-service-parquet')
 
 # Firehose送信関数
 def send_to_firehose(json_data: Dict[str, Any], parquet_data: Optional[Dict[str, Any]] = None):
     """
-    JSONとParquetの2つのFirehoseストリームに送信
+    JSON、JSON GZ、Iceberg、Parquetの4つのFirehoseストリームに送信
     """
     try:
         # JSON Firehoseに送信
@@ -41,6 +43,39 @@ def send_to_firehose(json_data: Dict[str, Any], parquet_data: Optional[Dict[str,
             DeliveryStreamName=FIREHOSE_JSON_STREAM,
             Record={'Data': json_record}
         )
+        
+        # JSON GZ Firehoseに送信
+        firehose_client.put_record(
+            DeliveryStreamName=FIREHOSE_JSON_GZ_STREAM,
+            Record={'Data': json_record}
+        )
+        
+        # Iceberg Firehoseに送信（パーティション情報を含む構造化データ）
+        if parquet_data:
+            # パーティション情報を追加
+            iceberg_data = parquet_data.copy()
+            timestamp_str = iceberg_data.get("timestamp", datetime.utcnow().isoformat() + "Z")
+            
+            # ISO形式のタイムスタンプから年、月、日を抽出
+            try:
+                if timestamp_str.endswith('Z'):
+                    timestamp_str = timestamp_str[:-1]  # Zを除去
+                dt = datetime.fromisoformat(timestamp_str)
+                iceberg_data["year"] = str(dt.year)
+                iceberg_data["month"] = f"{dt.month:02d}"
+                iceberg_data["day"] = f"{dt.day:02d}"
+            except Exception as e:
+                # タイムスタンプの解析に失敗した場合は現在時刻を使用
+                now = datetime.utcnow()
+                iceberg_data["year"] = str(now.year)
+                iceberg_data["month"] = f"{now.month:02d}"
+                iceberg_data["day"] = f"{now.day:02d}"
+            
+            iceberg_record = json.dumps(iceberg_data) + '\n'
+            firehose_client.put_record(
+                DeliveryStreamName=FIREHOSE_ICEBERG_STREAM,
+                Record={'Data': iceberg_record}
+            )
         
         # Parquet Firehoseに送信（構造化データ）
         if parquet_data:
@@ -61,6 +96,8 @@ def send_to_firehose(json_data: Dict[str, Any], parquet_data: Optional[Dict[str,
             "message": f"Failed to send to Firehose: {str(e)}",
             "firehose_streams": {
                 "json": FIREHOSE_JSON_STREAM,
+                "json_gz": FIREHOSE_JSON_GZ_STREAM,
+                "iceberg": FIREHOSE_ICEBERG_STREAM,
                 "parquet": FIREHOSE_PARQUET_STREAM
             }
         }
@@ -247,7 +284,12 @@ def generate_full_context() -> Dict[str, Any]:
 # 起動時ログとECSメタデータログを共通化関数で簡潔に送信
 log_and_send(
     message="API Service starting up with direct Firehose integration",
-    firehose_streams={"json": FIREHOSE_JSON_STREAM, "parquet": FIREHOSE_PARQUET_STREAM}
+    firehose_streams={
+        "json": FIREHOSE_JSON_STREAM, 
+        "json_gz": FIREHOSE_JSON_GZ_STREAM,
+        "iceberg": FIREHOSE_ICEBERG_STREAM,
+        "parquet": FIREHOSE_PARQUET_STREAM
+    }
 )
 
 log_and_send(

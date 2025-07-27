@@ -19,6 +19,10 @@ resource "aws_s3_bucket" "api_logs_json" {
   bucket = "${var.project_name}-api-logs-json-${random_string.suffix.result}"
 }
 
+resource "aws_s3_bucket" "api_logs_json_gz" {
+  bucket = "${var.project_name}-api-logs-json-gz-${random_string.suffix.result}"
+}
+
 resource "aws_s3_bucket" "api_logs_iceberg" {
   bucket = "${var.project_name}-api-logs-iceberg-${random_string.suffix.result}"
 }
@@ -33,6 +37,14 @@ resource "aws_s3_directory_bucket" "api_logs_parquet_express" {
 
 resource "aws_s3_directory_bucket" "api_logs_json_express" {
   bucket = "${var.project_name}-api-logs-json-${random_string.suffix.result}--apne1-az1--x-s3"
+
+  location {
+    name = "apne1-az1"
+  }
+}
+
+resource "aws_s3_directory_bucket" "api_logs_json_gz_express" {
+  bucket = "${var.project_name}-api-logs-json-gz-${random_string.suffix.result}--apne1-az1--x-s3"
 
   location {
     name = "apne1-az1"

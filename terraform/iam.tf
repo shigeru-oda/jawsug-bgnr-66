@@ -107,6 +107,8 @@ resource "aws_iam_policy" "firehose_policy" {
         Resource = [
           aws_s3_bucket.api_logs_json.arn,
           "${aws_s3_bucket.api_logs_json.arn}/*",
+          aws_s3_bucket.api_logs_json_gz.arn,
+          "${aws_s3_bucket.api_logs_json_gz.arn}/*",
           aws_s3_bucket.api_logs_parquet.arn,
           "${aws_s3_bucket.api_logs_parquet.arn}/*"
         ]
@@ -160,7 +162,9 @@ resource "aws_iam_policy" "ecs_firehose_policy" {
         ]
         Resource = [
           aws_kinesis_firehose_delivery_stream.api_service_json.arn,
-          aws_kinesis_firehose_delivery_stream.api_service_parquet.arn
+          aws_kinesis_firehose_delivery_stream.api_service_json_gz.arn,
+          aws_kinesis_firehose_delivery_stream.api_service_parquet.arn,
+          aws_kinesis_firehose_delivery_stream.api_service_iceberg.arn
         ]
       }
     ]
@@ -215,6 +219,8 @@ resource "aws_iam_policy" "athena_policy" {
           "${aws_s3_bucket.api_logs_parquet.arn}/*",
           aws_s3_bucket.api_logs_json.arn,
           "${aws_s3_bucket.api_logs_json.arn}/*",
+          aws_s3_bucket.api_logs_json_gz.arn,
+          "${aws_s3_bucket.api_logs_json_gz.arn}/*",
           aws_s3_bucket.athena_query_results.arn,
           "${aws_s3_bucket.athena_query_results.arn}/*",
           aws_s3_bucket.api_logs_iceberg.arn,
