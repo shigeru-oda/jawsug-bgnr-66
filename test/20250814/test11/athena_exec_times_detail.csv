@@ -1,0 +1,11 @@
+table,run,execution_time_sec,data_scanned_mb
+buildersflash_api_logs_parquet,1,353.253,4982.32
+buildersflash_api_logs_parquet,2,379.343,4982.32
+buildersflash_api_logs_parquet,3,378.326,4982.32
+buildersflash_api_logs_parquet,4,374.364,4982.32
+buildersflash_api_logs_parquet,5,386.383,4982.32
+buildersflash_api_logs_parquet,6,374.315,4982.32
+buildersflash_api_logs_parquet,7,384.178,4982.32
+buildersflash_api_logs_parquet,8,381.312,4982.32
+buildersflash_api_logs_parquet,9,355.91,4982.32
+buildersflash_api_logs_parquet,10,372.493,4982.32

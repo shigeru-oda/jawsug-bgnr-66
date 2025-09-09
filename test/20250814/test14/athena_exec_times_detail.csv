@@ -1,0 +1,8 @@
+table,run,execution_time_sec,data_scanned_mb
+buildersflash_api_logs_iceberg_query,1,1777.89,8252.14
+buildersflash_api_logs_iceberg_query,2,1773.06,8252.14
+buildersflash_api_logs_iceberg_query,3,1784.54,8252.14
+buildersflash_api_logs_iceberg_query,4,1788.14,8252.14
+buildersflash_api_logs_iceberg_query,5,1791.31,8252.14
+buildersflash_api_logs_iceberg_query,6,1780.82,8252.14
+buildersflash_api_logs_iceberg_query,7,1797.84,8252.14

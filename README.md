@@ -8,6 +8,13 @@
 ECS で作成される log を各種 S3 に保存して、Athena で検索することを体験するハンズオンです  
 ![](./img/img01.png)
 
+## Report
+
+性能結果レポートです。
+  
+[REPORT.md](./REPORT.md)を参照してください
+
+
 ## 環境構築手順
 
 ### Install AWS CLI（未 Install の場合）
@@ -183,10 +190,6 @@ curl -X GET http://$ALB_DNS/health
 - 好きな条件で検索を行ってみてください。
 
 ![](./img/img08.png)
-
-## （オプション）データ拡張
-
-[OPTION.md](./OPTION.md)を参照してください
 
 ## 反映
 

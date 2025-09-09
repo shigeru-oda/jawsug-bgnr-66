@@ -1,0 +1,8 @@
+table,avg_execution_time_sec,avg_data_scanned_mb
+buildersflash_api_logs_iceberg,1.9718,0.689319
+buildersflash_api_logs_json,6.3529,31143.9
+buildersflash_api_logs_json_express,6.816,31143.9
+buildersflash_api_logs_json_gz,11.6629,1934.69
+buildersflash_api_logs_json_gz_express,11.407,1934.69
+buildersflash_api_logs_parquet,3.6096,32.314
+buildersflash_api_logs_parquet_express,3.121,32.314

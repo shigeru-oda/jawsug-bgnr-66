@@ -1,0 +1,3 @@
+table,avg_execution_time_sec,avg_data_scanned_mb
+buildersflash_api_logs_parquet,261.409,2989.4
+buildersflash_api_logs_parquet_express,256.128,2989.4

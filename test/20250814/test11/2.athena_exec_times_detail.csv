@@ -1,0 +1,9 @@
+table,run,execution_time_sec,data_scanned_mb
+buildersflash_api_logs_json_gz,1,406.438,3182.85
+buildersflash_api_logs_json_gz,2,394.727,3182.85
+buildersflash_api_logs_json_gz,3,380.302,3182.85
+buildersflash_api_logs_json_gz,4,411.223,3182.85
+buildersflash_api_logs_json_gz,5,371.136,3182.85
+buildersflash_api_logs_json_gz,6,398.442,3182.85
+buildersflash_api_logs_json_gz,7,370.319,3182.85
+buildersflash_api_logs_json_gz,8,402.66,3182.85

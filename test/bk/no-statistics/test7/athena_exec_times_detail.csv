@@ -1,0 +1,11 @@
+table,run,execution_time_sec,data_scanned_mb
+buildersflash_api_logs_iceberg_query,1,3.39,2.71157
+buildersflash_api_logs_iceberg_query,2,1.336,2.71157
+buildersflash_api_logs_iceberg_query,3,1.94,2.71157
+buildersflash_api_logs_iceberg_query,4,1.721,2.71157
+buildersflash_api_logs_iceberg_query,5,2.248,2.71157
+buildersflash_api_logs_iceberg_query,6,2.703,2.71157
+buildersflash_api_logs_iceberg_query,7,2.233,2.71157
+buildersflash_api_logs_iceberg_query,8,1.348,2.71157
+buildersflash_api_logs_iceberg_query,9,1.427,2.71157
+buildersflash_api_logs_iceberg_query,10,1.947,2.71157

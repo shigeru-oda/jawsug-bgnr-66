@@ -1,0 +1,131 @@
+#!/bin/bash
+
+#==========================
+# 設定
+#==========================
+DATABASE="buildersflash_buildersflash_logs"
+REGION="ap-northeast-1"
+WORKGROUP="buildersflash-api-logs"
+
+TABLES=(
+  "buildersflash_api_logs_iceberg_query"
+)
+
+RUN_COUNT=10
+
+#==========================
+# SQLテンプレート
+# {TABLE_NAME} を対象テーブルに置換して使用
+#==========================
+read -r -d '' SQL_TEMPLATE <<'EOSQL'
+SELECT
+    request_body.side AS trade_side,
+    COUNT(*) AS total_orders,
+    SUM(request_body.quantity) AS total_qty,
+    AVG(request_body.price) AS avg_price,
+    MAX(response_time_ms) AS max_response_time,
+    CASE
+        WHEN status_code BETWEEN 200 AND 299 THEN 'SUCCESS'
+        WHEN status_code BETWEEN 400 AND 499 THEN 'CLIENT_ERROR'
+        ELSE 'OTHER'
+    END AS status_group
+FROM {TABLE_NAME}
+WHERE year = '2025'
+  AND month = '07'
+  AND day BETWEEN '01' AND '07'
+  AND (http_method = 'POST' OR http_method = 'PUT')
+  AND api_path = '/health'
+GROUP BY
+    request_body.side,
+    CASE
+        WHEN status_code BETWEEN 200 AND 299 THEN 'SUCCESS'
+        WHEN status_code BETWEEN 400 AND 499 THEN 'CLIENT_ERROR'
+        ELSE 'OTHER'
+    END
+ORDER BY total_orders DESC;
+EOSQL
+
+# CSVファイル
+DETAIL_CSV="athena_exec_times_detail.csv"
+SUMMARY_CSV="athena_exec_times_summary.csv"
+
+# ヘッダー行を初期化（スキャンデータ量MB追加）
+echo "table,run,execution_time_sec,data_scanned_mb" > "$DETAIL_CSV"
+echo "table,avg_execution_time_sec,avg_data_scanned_mb" > "$SUMMARY_CSV"
+
+#==========================
+# 実行
+#==========================
+for table in "${TABLES[@]}"; do
+  echo "=== Table: $table ==="
+  total_time=0
+  total_scanned=0
+
+  for ((i=1; i<=RUN_COUNT; i++)); do
+    SQL="${SQL_TEMPLATE//\{TABLE_NAME\}/$table}"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Executing ($i/$RUN_COUNT) ..."
+
+    # クエリ実行 → 実行ID取得
+    QUERY_EXEC_ID=$(aws athena start-query-execution \
+      --query-string "$SQL" \
+      --query-execution-context Database="$DATABASE" \
+      --work-group "$WORKGROUP" \
+      --region "$REGION" \
+      --query 'QueryExecutionId' \
+      --output text)
+
+    # 完了待ち
+    while true; do
+      STATUS=$(aws athena get-query-execution \
+        --query-execution-id "$QUERY_EXEC_ID" \
+        --region "$REGION" \
+        --query 'QueryExecution.Status.State' \
+        --output text)
+
+      if [[ "$STATUS" == "SUCCEEDED" ]]; then
+        break
+      elif [[ "$STATUS" == "FAILED" || "$STATUS" == "CANCELLED" ]]; then
+        echo "Execution failed: $QUERY_EXEC_ID"
+        break
+      fi
+
+      sleep 1
+    done
+
+    # 実行時間とスキャンデータ量を取得
+    DURATION_MS=$(aws athena get-query-execution \
+      --query-execution-id "$QUERY_EXEC_ID" \
+      --region "$REGION" \
+      --query 'QueryExecution.Statistics.EngineExecutionTimeInMillis' \
+      --output text)
+
+    SCANNED_BYTES=$(aws athena get-query-execution \
+      --query-execution-id "$QUERY_EXEC_ID" \
+      --region "$REGION" \
+      --query 'QueryExecution.Statistics.DataScannedInBytes' \
+      --output text)
+
+    # 秒とMBに変換
+    DURATION_SEC=$(awk "BEGIN {print $DURATION_MS/1000}")
+    SCANNED_MB=$(awk "BEGIN {print $SCANNED_BYTES/1024/1024}")
+
+    echo "Execution time: ${DURATION_SEC}s, Data scanned: ${SCANNED_MB}MB"
+
+    # CSVに記録
+    echo "$table,$i,$DURATION_SEC,$SCANNED_MB" >> "$DETAIL_CSV"
+
+    total_time=$(awk "BEGIN {print $total_time+$DURATION_SEC}")
+    total_scanned=$(awk "BEGIN {print $total_scanned+$SCANNED_MB}")
+  done
+
+  avg_time=$(awk "BEGIN {print $total_time/$RUN_COUNT}")
+  avg_scanned=$(awk "BEGIN {print $total_scanned/$RUN_COUNT}")
+
+  echo "Average execution time for $table: ${avg_time}s, Avg data scanned: ${avg_scanned}MB"
+  echo "$table,$avg_time,$avg_scanned" >> "$SUMMARY_CSV"
+  echo
+done
+
+echo "=== Completed ==="
+echo "詳細: $DETAIL_CSV"
+echo "平均: $SUMMARY_CSV"

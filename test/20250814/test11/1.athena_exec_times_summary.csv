@@ -1,0 +1,3 @@
+table,avg_execution_time_sec,avg_data_scanned_mb
+buildersflash_api_logs_iceberg_query,330.542,2941.25
+buildersflash_api_logs_json,332.779,51236.1
